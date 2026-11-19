@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: Test & build
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: rentshield
+          POSTGRES_PASSWORD: rentshield
+          POSTGRES_DB: rentshield_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U rentshield"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://rentshield:rentshield@localhost:5432/rentshield_test
+      JWT_SECRET: ci-secret-at-least-16-chars
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            server/package-lock.json
+            web/package-lock.json
+
+      - name: Server - install
+        working-directory: server
+        run: npm ci && npx prisma generate
+      - name: Server - typecheck
+        working-directory: server
+        run: npx tsc --noEmit
+      - name: Server - migrate test database
+        working-directory: server
+        run: npx prisma migrate deploy
+      - name: Server - integration tests
+        working-directory: server
+        run: npm test
+
+      - name: Web - install
+        working-directory: web
+        run: npm ci
+      - name: Web - typecheck & build
+        working-directory: web
+        run: npm run build
+
+  docker:
+    name: Docker image builds
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t rentshield .

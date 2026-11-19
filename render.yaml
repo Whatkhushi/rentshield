@@ -1,0 +1,23 @@
+# Render Blueprint. The database lives on Neon (free Postgres): paste its
+# URL as DATABASE_URL when Render asks.
+#
+# NOTE: Render's free tier has no persistent disk, so uploaded photos are
+# lost on redeploy. Before relying on the live demo, add a cloud storage
+# driver (see server/src/lib/storage.ts) or attach a paid disk.
+services:
+  - type: web
+    name: rentshield
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: APP_URL
+        sync: false # e.g. https://rentshield.onrender.com
+      - key: SEED_DEMO
+        value: 'true'
