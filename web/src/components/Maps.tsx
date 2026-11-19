@@ -6,11 +6,21 @@ import { LocateFixed } from 'lucide-react';
 import { currentPosition, INDIA_CENTRE } from '../lib/device';
 import { Button, cx } from './ui';
 
-// OpenStreetMap's standard tiles: free, no API key, attribution required.
-// (Colours are muted in index.css to fit the app.) For real traffic, OSM's
-// tile policy asks you to use a commercial provider or host your own.
+// OpenStreetMap's standard tiles: free, no API key. OSM requires visible
+// credit; it lives in the app footer (MapCredit) instead of on every map,
+// so the map corner control is turned off below. Colours are muted in
+// index.css. For real traffic, OSM's tile policy asks you to use a
+// commercial provider or host your own.
 const TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-const ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+
+/** The OpenStreetMap credit, shown in the footer of pages that have maps. */
+export function MapCredit({ className }: { className?: string }) {
+  return (
+    <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" className={cx('hover:text-ink-700 hover:underline', className)}>
+      Map data © OpenStreetMap contributors
+    </a>
+  );
+}
 
 /** CSS-only pins (avoids Leaflet's default image paths breaking under Vite). */
 const pin = (color: string, size = 30) =>
@@ -74,8 +84,8 @@ export function MapPicker({
 
   return (
     <div className={cx('relative isolate overflow-hidden rounded-2xl ring-1 ring-ink-200', className)}>
-      <MapContainer center={center} zoom={zoom} className="size-full" scrollWheelZoom>
-        <TileLayer url={TILES} attribution={ATTRIBUTION} />
+      <MapContainer center={center} zoom={zoom} className="size-full" scrollWheelZoom attributionControl={false}>
+        <TileLayer url={TILES} />
         <Recenter center={center} zoom={value ? Math.max(15, zoom) : zoom} />
         <ClickToPlace onPick={(lat, lng) => onChange({ lat, lng })} />
         {value && (
@@ -106,7 +116,7 @@ export function MapPicker({
             if (p) onChange(p);
           }}
         >
-          <LocateFixed className="size-3.5" /> {locating ? 'Locatingâ€¦' : 'Use my location'}
+          <LocateFixed className="size-3.5" /> {locating ? 'Locating…' : 'Use my location'}
         </Button>
       </div>
       {!value && (
@@ -154,9 +164,9 @@ export function EvidenceMap({
         scrollWheelZoom={false}
         doubleClickZoom={interactive}
         touchZoom={interactive}
-        attributionControl={interactive}
+        attributionControl={false}
       >
-        <TileLayer url={TILES} attribution={ATTRIBUTION} />
+        <TileLayer url={TILES} />
         <FitTo points={far.length ? [home, ...far] : []} fallback={home} />
         {radius > 0 &&<Circle center={[property.lat, property.lng]} radius={radius} pathOptions={{ color: '#059669', weight: 1, fillOpacity: 0.08 }} />}
         <Marker position={[property.lat, property.lng]} icon={HOME_PIN} />
