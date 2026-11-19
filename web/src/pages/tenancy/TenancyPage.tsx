@@ -1,11 +1,11 @@
 import { Link, NavLink, Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, MapPin } from 'lucide-react';
+import { ArrowLeft, MapPin, SearchX } from 'lucide-react';
 import { api } from '../../lib/api';
 import { inr } from '../../lib/format';
 import type { LeaseDetail } from '../../lib/types';
 import { StageStepper } from '../../components/StageTrack';
-import { Alert, Avatar, Spinner, cx } from '../../components/ui';
+import { Avatar, Button, EmptyState, Spinner, cx } from '../../components/ui';
 import OverviewTab from './OverviewTab';
 import InspectionTab from './InspectionTab';
 import CompareTab from './CompareTab';
@@ -21,7 +21,22 @@ export default function TenancyPage() {
   const { data: lease, isLoading, error } = useLease(id);
 
   if (isLoading) return <Spinner />;
-  if (error || !lease) return <Alert>{error ? (error as Error).message : 'Tenancy not found'}</Alert>;
+  if (error || !lease) {
+    return (
+      <EmptyState
+        icon={<SearchX className="size-6" />}
+        title="This tenancy isn’t in your account"
+        action={
+          <Link to="/app">
+            <Button>Go to your tenancies</Button>
+          </Link>
+        }
+      >
+        Each tenancy is visible only to its tenant and landlord. If you just switched accounts (for example between the demo tenant and landlord), this
+        one belongs to the other account.
+      </EmptyState>
+    );
+  }
 
   const moveOut = lease.inspections.find((i) => i.type === 'MOVE_OUT');
   // Absolute paths: inside a "/*" route, relative links resolve against the

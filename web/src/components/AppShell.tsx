@@ -1,4 +1,5 @@
-import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { LogOut } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { Logo } from './Logo';
@@ -7,11 +8,12 @@ import { Avatar, Spinner } from './ui';
 /** Layout for signed-in pages. Redirects to login if there's no session. */
 export default function AppShell() {
   const { user, loading, logout } = useAuth();
-  const navigate = useNavigate();
   const location = useLocation();
+  // When the user logs out on purpose, send them home, not to the login page.
+  const [leaving, setLeaving] = useState(false);
 
   if (loading) return <Spinner />;
-  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  if (!user) return <Navigate to={leaving ? '/' : '/login'} replace state={leaving ? undefined : { from: location.pathname }} />;
 
   return (
     <div className="min-h-screen">
@@ -25,9 +27,9 @@ export default function AppShell() {
             </div>
             <Avatar name={user.name} />
             <button
-              onClick={async () => {
-                await logout();
-                navigate('/');
+              onClick={() => {
+                setLeaving(true);
+                logout();
               }}
               className="rounded-lg p-2 text-ink-400 hover:bg-ink-100 hover:text-ink-900"
               title="Log out"

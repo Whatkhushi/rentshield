@@ -15,7 +15,10 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   const { user, login, register } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as { from?: string } | null)?.from ?? '/app';
+  // Only return to an invite link after login. Any other page may belong to a
+  // different account (e.g. switching between demo users), so go to the dashboard.
+  const requested = (location.state as { from?: string } | null)?.from;
+  const from = requested?.startsWith('/invite/') ? requested : '/app';
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});

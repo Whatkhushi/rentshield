@@ -29,7 +29,21 @@ export function createApp() {
   );
   app.use(express.json({ limit: '100kb' }));
   app.use(cookieParser());
-  if (!isTest) app.use(pinoHttp({ logger, autoLogging: { ignore: (req) => req.url === '/api/health' } }));
+  if (!isTest) {
+    app.use(
+      pinoHttp({
+        logger,
+        autoLogging: { ignore: (req) => req.url === '/api/health' },
+        // One short line per request instead of every header.
+        serializers: {
+          req: (req) => ({ method: req.method, url: req.url }),
+          res: (res) => ({ status: res.statusCode }),
+        },
+        customSuccessMessage: (req, res, ms) => `${req.method} ${req.url} → ${res.statusCode} (${Math.round(ms)}ms)`,
+        customErrorMessage: (req, res) => `${req.method} ${req.url} → ${res.statusCode}`,
+      }),
+    );
+  }
 
   app.get('/api/health', async (_req, res) => {
     try {
