@@ -166,9 +166,53 @@ async function inspect(token: string, leaseId: number, type: 'MOVE_IN' | 'MOVE_O
   return inspection.id as number;
 }
 
+// Real-world positions for the demo flats.
+const PLACES = {
+  'Flat 402, Lakeview': { latitude: 12.91164, longitude: 77.64738 }, // HSR Layout, Bengaluru
+  '12 Carter Road': { latitude: 19.06492, longitude: 72.82318 }, // Bandra West, Mumbai
+  '7 Lodhi Estate': { latitude: 28.58817, longitude: 77.22337 }, // Lodhi Estate, New Delhi
+};
+const jitter = (p: { latitude: number; longitude: number }, i: number) => ({
+  latitude: p.latitude + Math.sin(i * 2.1) * 0.00018, // ~20 m
+  longitude: p.longitude + Math.cos(i * 1.7) * 0.00018,
+});
+
+/**
+ * Demo data created before photo locations existed: pin the demo flats and
+ * give their photos device locations near the flat (one deliberately far
+ * away, to show the warning). Only touches the demo accounts' records.
+ */
+async function backfillDemoLocations() {
+  const demo = await prisma.user.findMany({ where: { email: { in: ['tenant@rentshield.dev', 'landlord@rentshield.dev'] } }, select: { id: true } });
+  const demoIds = demo.map((u) => u.id);
+  for (const [prefix, place] of Object.entries(PLACES)) {
+    const props = await prisma.property.findMany({
+      where: { addressLine: { startsWith: prefix }, leases: { some: { OR: [{ tenantId: { in: demoIds } }, { landlordId: { in: demoIds } }] } } },
+    });
+    for (const prop of props) {
+      if (prop.latitude === null) await prisma.property.update({ where: { id: prop.id }, data: place });
+      const photos = await prisma.evidence.findMany({
+        where: { kind: 'PHOTO', latitude: null, uploadedById: { in: demoIds }, item: { inspection: { lease: { propertyId: prop.id } } } },
+        include: { item: { include: { room: true } } },
+        orderBy: { id: 'asc' },
+      });
+      for (const [i, ph] of photos.entries()) {
+        // Mumbai's leaking-tap photo: taken ~3 km away, near Bandra station.
+        const far = prefix === '12 Carter Road' && ph.item?.room.name === 'Bathroom 1';
+        const at = far ? { latitude: 19.0544, longitude: 72.8406 } : jitter(place, i + 1);
+        await prisma.evidence.update({
+          where: { id: ph.id },
+          data: { ...at, locationSource: 'DEVICE', takenAt: new Date(ph.uploadedAt.getTime() - 60_000) },
+        });
+      }
+    }
+  }
+}
+
 async function main() {
   if (await prisma.user.findUnique({ where: { email: 'tenant@rentshield.dev' } })) {
-    console.log('Demo data already present, skipping.');
+    await backfillDemoLocations();
+    console.log('Demo data already present; locations backfilled.');
     return;
   }
   const server = createServer(createApp()).listen(0);
@@ -250,6 +294,7 @@ async function main() {
       start: '2026-12-01',
     });
 
+    await backfillDemoLocations();
     console.log('Seed complete: tenant@rentshield.dev / tenant1234, landlord@rentshield.dev / landlord1234');
   } finally {
     server.close();

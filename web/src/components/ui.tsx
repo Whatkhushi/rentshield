@@ -1,4 +1,5 @@
 import { useEffect, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ');
@@ -125,7 +126,8 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
     };
   }, [open, onClose]);
   if (!open) return null;
-  return (
+  // Portal to <body> so the dialog is never trapped under a parent's stacking context.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink-950/60 p-0 backdrop-blur-sm sm:items-center sm:p-6" onClick={onClose}>
       <div
         className={cx('animate-rise max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl', wide ? 'max-w-4xl' : 'max-w-lg')}
@@ -141,7 +143,8 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
         </div>
         <div className="p-5">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

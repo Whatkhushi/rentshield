@@ -10,7 +10,9 @@ export const dateTime = (iso: string | null | undefined) =>
 
 export const shortHash = (h: string) => `${h.slice(0, 8)}…${h.slice(-6)}`;
 
-export const bytes = (n: number) => (n < 1024 * 1024 ? `${Math.round(n / 1024)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
+export const distance = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${m} m`);
+
+export const bytes =(n: number) => (n < 1024 * 1024 ? `${Math.round(n / 1024)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
 
 export const CONDITIONS: { value: Condition; label: string; tone: string }[] = [
   { value: 'GOOD', label: 'Good', tone: 'ok' },
@@ -65,6 +67,11 @@ export function describeAction(action: string, data: Record<string, unknown> | n
     'settlement.confirmed': 'confirmed the settlement',
     'settlement.agreed': `confirmed — settlement agreed, refund ${inr(Number(d.refund))}`,
     'report.requested': 'generated a PDF report',
+    'property.pinned': 'pinned the property on the map',
+    'item.added': `added “${d.item}” to the ${String(d.room ?? '')} checklist`,
+    'item.removed': `removed “${d.item}” from the checklist`,
+    'items.marked_good': `marked ${d.count} remaining item(s) as Good`,
+    'item.noted': `recorded a disagreement on “${d.item}” (both views kept)`,
   };
   return map[action] ?? action;
 }

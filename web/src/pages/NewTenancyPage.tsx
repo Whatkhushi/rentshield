@@ -6,6 +6,8 @@ import { api, ApiError } from '../lib/api';
 import { inr, PROPERTY_TYPES } from '../lib/format';
 import type { Role } from '../lib/types';
 import { Alert, Button, Card, Field, cx } from '../components/ui';
+import { MapPicker } from '../components/Maps';
+import { cityCentre } from '../lib/device';
 
 const PRESETS: Record<string, string[]> = {
   '1 RK': ['Room', 'Kitchen', 'Bathroom'],
@@ -22,6 +24,7 @@ export default function NewTenancyPage() {
   const [property, setProperty] = useState({ addressLine: '', city: '', propertyType: 'APARTMENT' });
   const [rooms, setRooms] = useState<string[]>(PRESETS['1 BHK']);
   const [newRoom, setNewRoom] = useState('');
+  const [pin, setPin] = useState<{ lat: number; lng: number } | null>(null);
   const [money, setMoney] = useState({ startDate: new Date().toISOString().slice(0, 10), monthlyRent: '', securityDeposit: '' });
 
   const create = useMutation({
@@ -30,7 +33,7 @@ export default function NewTenancyPage() {
         method: 'POST',
         body: {
           myRole: role,
-          property: { ...property, rooms },
+          property: { ...property, rooms, ...(pin ? { latitude: pin.lat, longitude: pin.lng } : {}) },
           startDate: money.startDate,
           monthlyRent: Number(money.monthlyRent),
           securityDeposit: Number(money.securityDeposit),
@@ -143,7 +146,18 @@ export default function NewTenancyPage() {
                   </button>
                 </form>
               </div>
-              <p className="mt-2 text-xs text-ink-400">Each room gets a standard checklist (walls, floor, fittings…) based on its name.</p>
+              <p className="mt-2 text-xs text-ink-400">Each room gets a standard checklist (walls, floor, fittings…) based on its name. You can add or remove items later.</p>
+            </div>
+            <div>
+              <div className="mb-2 flex items-baseline justify-between gap-2">
+                <span className="text-sm font-medium text-ink-800">Pin the building on the map</span>
+                <span className="text-xs text-ink-400">{pin ? `${pin.lat.toFixed(5)}, ${pin.lng.toFixed(5)}` : 'Optional, recommended'}</span>
+              </div>
+              <MapPicker value={pin} onChange={setPin} fallbackCenter={cityCentre(property.city)} className="h-64" />
+              <p className="mt-2 text-xs text-ink-400">
+                Used to check that inspection photos were actually taken at this property. Phone photos carry their GPS location. Only the two of you can
+                see it.
+              </p>
             </div>
           </div>
         )}

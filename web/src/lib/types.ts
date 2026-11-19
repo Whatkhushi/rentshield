@@ -3,7 +3,7 @@ export type Stage = 'WAITING_FOR_PARTY' | 'MOVE_IN' | 'LIVING' | 'MOVE_OUT' | 'S
 export type InspectionType = 'MOVE_IN' | 'MOVE_OUT';
 export type InspectionStatus = 'DRAFT' | 'SUBMITTED' | 'FINALIZED';
 export type Condition = 'GOOD' | 'FAIR' | 'DAMAGED' | 'MISSING' | 'NOT_APPLICABLE';
-export type ReviewStatus = 'PENDING' | 'APPROVED' | 'DISPUTED';
+export type ReviewStatus = 'PENDING' | 'APPROVED' | 'DISPUTED' | 'NOTED';
 export type DeductionStatus = 'PROPOSED' | 'ACCEPTED' | 'DISPUTED' | 'WITHDRAWN';
 
 export interface User {
@@ -29,6 +29,8 @@ export interface Property {
   addressLine: string;
   city: string;
   propertyType: 'APARTMENT' | 'INDEPENDENT_HOUSE' | 'ROOM' | 'PG';
+  latitude: number | null;
+  longitude: number | null;
   rooms?: Room[];
 }
 
@@ -41,6 +43,7 @@ export interface InspectionSummary {
   documented?: number;
   approved?: number;
   disputed?: number;
+  noted?: number;
   submittedAt?: string | null;
   finalizedAt?: string | null;
 }
@@ -73,6 +76,21 @@ export interface Evidence {
   sha256: string;
   uploadedAt: string;
   uploadedById: number;
+  takenAt?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  locationSource?: 'EXIF' | 'DEVICE' | null;
+  check?: PhotoCheck;
+}
+
+/** Server's verdict on where/when a photo was taken. */
+export interface PhotoCheck {
+  place: 'AT_PROPERTY' | 'AWAY' | 'NO_LOCATION' | 'PROPERTY_NOT_PINNED';
+  distanceMeters: number | null;
+  source: 'EXIF' | 'DEVICE' | null;
+  takenAt: string | null;
+  ageDays: number | null;
+  stale: boolean;
 }
 
 export interface Item {
@@ -102,6 +120,7 @@ export interface Inspection {
   finalizedAt: string | null;
   items: Item[];
   rooms: Room[];
+  property: { latitude: number | null; longitude: number | null };
   myRole: Role;
   isAuthor: boolean;
   otherPartyJoined: boolean;

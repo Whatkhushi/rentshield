@@ -1,16 +1,23 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useMutation } from '@tanstack/react-query';
-import { ArrowRight, Check, ClipboardCheck, Copy, Link2, Scale, Send } from 'lucide-react';
+import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
+import { ArrowRight, Check, ClipboardCheck, Copy, Link2, MapPin, Scale, Send } from 'lucide-react';
 import { api } from '../../lib/api';
+import { cityCentre } from '../../lib/device';
 import { dateShort, inr } from '../../lib/format';
-import type { InspectionSummary, LeaseDetail } from '../../lib/types';
+import type { Inspection, InspectionSummary, LeaseDetail } from '../../lib/types';
 import { nextStep } from '../DashboardPage';
-import { Badge, Button, Card, cx } from '../../components/ui';
+import { EvidenceMap, MapPicker } from '../../components/Maps';
+import { Badge, Button, Card, Modal, cx } from '../../components/ui';
 
 export function InspectionStatusBadge({ i }: { i?: InspectionSummary }) {
   if (!i) return <Badge tone="muted">Not started</Badge>;
-  if (i.status === 'FINALIZED') return <Badge tone="ok"><Check className="size-3" /> Agreed & locked</Badge>;
+  if (i.status === 'FINALIZED')
+    return (
+      <Badge tone="ok">
+        <Check className="size-3" /> Agreed & locked
+      </Badge>
+    );
   if (i.status === 'SUBMITTED') return <Badge tone={i.disputed ? 'warn' : 'ink'}>{i.disputed ? `${i.disputed} disputed` : 'In review'}</Badge>;
   return <Badge tone="ink">Draft</Badge>;
 }
@@ -61,6 +68,107 @@ function InvitePanel({ lease }: { lease: LeaseDetail }) {
           </div>
         </div>
       </div>
+    </Card>
+  );
+}
+
+/** Property pin + where each inspection photo was taken. */
+function LocationCard({ lease }: { lease: LeaseDetail }) {
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [pin, setPin] = useState<{ lat: number; lng: number } | null>(null);
+  const p = lease.property;
+  const pinned = p.latitude != null && p.longitude != null;
+  const locked = lease.inspections.some((i) => i.status === 'FINALIZED');
+
+  // Photos from both inspections, for the evidence map.
+  const inspections = useQueries({
+    queries: lease.inspections.map((i) => ({
+      queryKey: ['inspection', i.id],
+      queryFn: () => api<{ inspection: Inspection }>(`/inspections/${i.id}`).then((r) => r.inspection),
+      enabled: pinned,
+    })),
+  });
+  const photos = inspections
+    .flatMap((q) => q.data?.items.flatMap((it) => it.evidence.map((e) => ({ e, label: `${it.name}${q.data?.type === 'MOVE_OUT' ? ' (move-out)' : ''}` }))) ?? [])
+    .filter(({ e }) => e.latitude != null && e.longitude != null && e.check);
+  const atProperty = photos.filter(({ e }) => e.check!.place === 'AT_PROPERTY').length;
+
+  const save = useMutation({
+    mutationFn: () => api(`/leases/${lease.id}/location`, { method: 'PATCH', body: { latitude: pin!.lat, longitude: pin!.lng } }),
+    onSuccess: () => {
+      setEditing(false);
+      qc.invalidateQueries({ queryKey: ['lease', lease.id] });
+      lease.inspections.forEach((i) => qc.invalidateQueries({ queryKey: ['inspection', i.id] }));
+    },
+  });
+
+  return (
+    <Card className="overflow-hidden">
+      {pinned ? (
+        <EvidenceMap
+          className="h-56 rounded-none ring-0"
+          property={{ lat: p.latitude!, lng: p.longitude! }}
+          photos={photos.map(({ e, label }) => ({ id: e.id, lat: e.latitude!, lng: e.longitude!, label, ok: e.check!.place === 'AT_PROPERTY' }))}
+        />
+      ) : (
+        <div className="bg-grid grid h-40 place-items-center bg-ink-50">
+          <MapPin className="size-8 text-ink-300" />
+        </div>
+      )}
+      <div className="p-5">
+        <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">Location</p>
+        {pinned ? (
+          <>
+            <p className="mt-1 text-sm text-ink-700">
+              {photos.length === 0 ? (
+                'No located photos yet. Photos taken on a phone carry their GPS position.'
+              ) : (
+                <>
+                  <strong className="text-ok-700">{atProperty}</strong> of {photos.length} located photos were taken at the property.
+                </>
+              )}
+            </p>
+            {photos.length > 0 && (
+              <p className="mt-2 flex gap-3 text-xs text-ink-500">
+                <span className="flex items-center gap-1">
+                  <span className="size-2.5 rounded-full bg-ok-600" /> within 150 m
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="size-2.5 rounded-full bg-amber-600" /> further away
+                </span>
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="mt-1 text-sm text-ink-600">Pin the building so RentShield can check that photos were taken here.</p>
+        )}
+        {!locked && (
+          <Button
+            size="sm"
+            variant="secondary"
+            className="mt-3"
+            onClick={() => {
+              setPin(pinned ? { lat: p.latitude!, lng: p.longitude! } : null);
+              setEditing(true);
+            }}
+          >
+            <MapPin className="size-3.5" /> {pinned ? 'Move pin' : 'Pin the property'}
+          </Button>
+        )}
+        {locked && pinned && <p className="mt-2 text-xs text-ink-400">Locked: an inspection was agreed with this location.</p>}
+      </div>
+
+      <Modal open={editing} onClose={() => setEditing(false)} title="Where is the property?" wide>
+        <MapPicker value={pin} onChange={setPin} fallbackCenter={cityCentre(p.city)} className="h-96" />
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <p className="text-xs text-ink-500">Click the building, or drag the pin. Locks once an inspection is agreed.</p>
+          <Button disabled={!pin || save.isPending} onClick={() => save.mutate()}>
+            Save location
+          </Button>
+        </div>
+        {save.error && <p className="mt-2 text-sm text-red-600">{(save.error as Error).message}</p>}
+      </Modal>
     </Card>
   );
 }
@@ -174,13 +282,7 @@ export default function OverviewTab({ lease }: { lease: LeaseDetail }) {
             ))}
           </div>
         </Card>
-        <Card className="p-5 text-sm text-ink-600">
-          <p className="font-semibold text-ink-900">How agreement works</p>
-          <p className="mt-1.5 leading-relaxed">
-            One of you documents each item; the other approves or disputes it. Disputed items get revised until you agree. Then the record locks, and
-            nobody can change it.
-          </p>
-        </Card>
+        <LocationCard lease={lease} />
       </aside>
     </div>
   );

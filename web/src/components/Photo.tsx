@@ -1,11 +1,89 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle2, FileText, Fingerprint, ImageOff, ShieldAlert, Trash2 } from 'lucide-react';
+import { CheckCircle2, Clock, FileText, Fingerprint, ImageOff, MapPin, MapPinOff, ShieldAlert, Trash2 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useEvidenceUrl } from '../lib/files';
-import { bytes, dateTime, shortHash } from '../lib/format';
-import type { Evidence } from '../lib/types';
+import { bytes, dateTime, distance, shortHash } from '../lib/format';
+import type { Evidence, PhotoCheck } from '../lib/types';
+import { EvidenceMap } from './Maps';
 import { Badge, Button, Modal, cx } from './ui';
+
+type Pin = { latitude: number | null; longitude: number | null } | undefined;
+
+/** Small chip: was this photo taken at the property, and recently? */
+export function PlaceBadge({ check, compact }: { check?: PhotoCheck; compact?: boolean }) {
+  if (!check) return null;
+  const base = 'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold backdrop-blur';
+  const chip =
+    check.place === 'AT_PROPERTY' ? (
+      <span className={cx(base, 'bg-ok-600/90 text-white')} title="Photo location is within 150 m of the property pin">
+        <MapPin className="size-3" /> {compact ? 'At property' : `At property · ${check.distanceMeters} m`}
+      </span>
+    ) : check.place === 'AWAY' ? (
+      <span className={cx(base, 'bg-warn-500/95 text-white')} title="Photo location is far from the property pin">
+        <MapPin className="size-3" /> {distance(check.distanceMeters!)} away
+      </span>
+    ) : check.place === 'PROPERTY_NOT_PINNED' ? (
+      <span className={cx(base, 'bg-ink-950/70 text-white')}>
+        <MapPin className="size-3" /> Located
+      </span>
+    ) : (
+      <span className={cx(base, 'bg-ink-950/60 text-white/90')} title="This file has no location data (common for screenshots and laptop uploads)">
+        <MapPinOff className="size-3" /> No location
+      </span>
+    );
+  return (
+    <span className="flex flex-wrap gap-1">
+      {chip}
+      {check.stale && (
+        <span className={cx(base, 'bg-warn-500/95 text-white')} title="Taken well before it was uploaded">
+          <Clock className="size-3" /> {Math.round(check.ageDays!)}d old
+        </span>
+      )}
+    </span>
+  );
+}
+
+function WhereWhen({ ev, property }: { ev: Evidence; property: Pin }) {
+  const c = ev.check;
+  if (!c || ev.kind !== 'PHOTO') return null;
+  const hasPin = property?.latitude != null && property?.longitude != null;
+  const text = {
+    AT_PROPERTY: `Taken ${c.distanceMeters} m from the property pin, so at the property.`,
+    AWAY: `Taken ${distance(c.distanceMeters!)} from the property pin. Worth asking why.`,
+    PROPERTY_NOT_PINNED: 'This photo has a location, but the property isn’t pinned on the map yet.',
+    NO_LOCATION: 'No location data in this file. Common for screenshots, edited images and laptop uploads.',
+  }[c.place];
+  return (
+    <div>
+      <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-ink-400">
+        <MapPin className="size-3.5" /> Where & when
+      </p>
+      <div className="space-y-2 rounded-xl bg-ink-50 p-3.5 text-xs text-ink-700">
+        <p>{text}</p>
+        {c.source && <p className="text-ink-400">Source: {c.source === 'EXIF' ? 'GPS saved inside the photo by the camera' : 'phone location when the in-app camera fired'}</p>}
+        <p>
+          {c.takenAt ? (
+            <>
+              Taken {dateTime(c.takenAt)}
+              {c.stale && <strong className="text-warn-700"> · {Math.round(c.ageDays!)} days before upload</strong>}
+            </>
+          ) : (
+            <span className="text-ink-400">Capture time unknown</span>
+          )}
+        </p>
+        {hasPin && ev.latitude != null && ev.longitude != null && (
+          <EvidenceMap
+            className="h-36"
+            interactive={false}
+            property={{ lat: property!.latitude!, lng: property!.longitude! }}
+            photos={[{ id: ev.id, lat: ev.latitude, lng: ev.longitude, label: ev.originalName, ok: c.place === 'AT_PROPERTY' }]}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function AuthedImage({ id, className, alt = '' }: { id: number; className?: string; alt?: string }) {
   const url = useEvidenceUrl(id);
@@ -21,7 +99,7 @@ interface VerifyResult {
 }
 
 /** Full-size view with the evidence record and an on-demand integrity check. */
-export function EvidenceViewer({ ev, open, onClose }: { ev: Evidence; open: boolean; onClose: () => void }) {
+export function EvidenceViewer({ ev, open, onClose, property }: { ev: Evidence; open: boolean; onClose: () => void; property?: Pin }) {
   const url = useEvidenceUrl(open ? ev.id : null);
   const verify = useQuery({
     queryKey: ['verify', ev.id],
@@ -44,6 +122,7 @@ export function EvidenceViewer({ ev, open, onClose }: { ev: Evidence; open: bool
           )}
         </div>
         <div className="space-y-4 text-sm">
+          <WhereWhen ev={ev} property={property} />
           <div>
             <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-ink-400">
               <Fingerprint className="size-3.5" /> Evidence record
@@ -98,7 +177,7 @@ function Row({ k, v }: { k: string; v: string }) {
   );
 }
 
-export function PhotoTile({ ev, onRemove, size = 'md' }: { ev: Evidence; onRemove?: () => void; size?: 'sm' | 'md' }) {
+export function PhotoTile({ ev, onRemove, size = 'md', property }: { ev: Evidence; onRemove?: () => void; size?: 'sm' | 'md'; property?: Pin }) {
   const [open, setOpen] = useState(false);
   const isImage = ev.mimeType.startsWith('image/');
   return (
@@ -114,10 +193,15 @@ export function PhotoTile({ ev, onRemove, size = 'md' }: { ev: Evidence; onRemov
           )}
         </button>
         {size === 'md' && (
-          <span className="pointer-events-none absolute inset-x-1.5 bottom-1.5 flex items-center gap-1 truncate rounded-md bg-ink-950/70 px-1.5 py-0.5 font-mono text-[9px] text-white/90 backdrop-blur">
-            <Fingerprint className="size-2.5 shrink-0" />
-            {shortHash(ev.sha256)}
-          </span>
+          <>
+            <span className="pointer-events-none absolute left-1.5 top-1.5">
+              <PlaceBadge check={ev.check} compact />
+            </span>
+            <span className="pointer-events-none absolute inset-x-1.5 bottom-1.5 flex items-center gap-1 truncate rounded-md bg-ink-950/70 px-1.5 py-0.5 font-mono text-[9px] text-white/90 backdrop-blur">
+              <Fingerprint className="size-2.5 shrink-0" />
+              {shortHash(ev.sha256)}
+            </span>
+          </>
         )}
         {onRemove && (
           <button
@@ -129,7 +213,7 @@ export function PhotoTile({ ev, onRemove, size = 'md' }: { ev: Evidence; onRemov
           </button>
         )}
       </div>
-      <EvidenceViewer ev={ev} open={open} onClose={() => setOpen(false)} />
+      <EvidenceViewer ev={ev} open={open} onClose={() => setOpen(false)} property={property} />
     </>
   );
 }

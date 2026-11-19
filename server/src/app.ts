@@ -23,7 +23,13 @@ export function createApp() {
   app.use(
     helmet({
       contentSecurityPolicy: isProd
-        ? { directives: { 'img-src': ["'self'", 'data:', 'blob:'], 'media-src': ["'self'", 'blob:'] } }
+        ? {
+            directives: {
+              // Map tiles come from OpenStreetMap.
+              'img-src': ["'self'", 'data:', 'blob:', 'https://tile.openstreetmap.org'],
+              'media-src': ["'self'", 'blob:'],
+            },
+          }
         : false,
     }),
   );

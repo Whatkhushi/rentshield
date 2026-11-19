@@ -6,6 +6,7 @@ import { useAuth } from '../lib/auth';
 import { inr } from '../lib/format';
 import type { LeaseSummary, Stage } from '../lib/types';
 import { StageBar } from '../components/StageTrack';
+import { EvidenceMap } from '../components/Maps';
 import { Alert, Avatar, Badge, Button, Card, EmptyState, Spinner } from '../components/ui';
 
 export function nextStep(stage: Stage, role: 'LANDLORD' | 'TENANT'): string {
@@ -81,20 +82,32 @@ export default function DashboardPage() {
               const other = l.myRole === 'TENANT' ? l.landlord : l.tenant;
               return (
                 <Link key={l.id} to={`/app/tenancy/${l.id}`} className="group">
-                  <Card className="h-full p-5 transition-all group-hover:-translate-y-0.5 group-hover:shadow-lg">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-start gap-3">
-                        <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-ink-50 text-ink-700">
-                          <Building2 className="size-5" />
+                  <Card className="h-full overflow-hidden transition-all group-hover:-translate-y-0.5 group-hover:shadow-lg">
+                    {/* Header: map of the property if pinned, otherwise a pattern */}
+                    <div className="relative h-28">
+                      {l.property.latitude != null && l.property.longitude != null ? (
+                        <EvidenceMap
+                          className="pointer-events-none size-full rounded-none ring-0"
+                          interactive={false}
+                          property={{ lat: l.property.latitude, lng: l.property.longitude }}
+                          radius={0}
+                        />
+                      ) : (
+                        <div className="bg-grid grid size-full place-items-center bg-gradient-to-br from-ink-50 to-ink-100">
+                          <Building2 className="size-8 text-ink-300" />
                         </div>
-                        <div>
-                          <h3 className="font-semibold leading-snug text-ink-900">{l.property.addressLine}</h3>
-                          <p className="mt-0.5 flex items-center gap-1 text-sm text-ink-500">
-                            <MapPin className="size-3.5" /> {l.property.city}
-                          </p>
-                        </div>
-                      </div>
-                      <Badge tone={l.myRole === 'TENANT' ? 'ink' : 'dark'}>{l.myRole === 'TENANT' ? 'You rent' : 'You own'}</Badge>
+                      )}
+                      <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-white to-transparent" />
+                      <Badge tone={l.myRole === 'TENANT' ? 'ink' : 'dark'} className="absolute right-3 top-3 shadow-sm">
+                        {l.myRole === 'TENANT' ? 'You rent' : 'You own'}
+                      </Badge>
+                    </div>
+                    <div className="px-5 pt-1 pb-5">
+                    <div>
+                      <h3 className="font-semibold leading-snug text-ink-900">{l.property.addressLine}</h3>
+                      <p className="mt-0.5 flex items-center gap-1 text-sm text-ink-500">
+                        <MapPin className="size-3.5" /> {l.property.city}
+                      </p>
                     </div>
 
                     <div className="mt-5">
@@ -121,6 +134,7 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <ArrowRight className="mt-2 ml-auto size-4 text-ink-300 transition-transform group-hover:translate-x-1 group-hover:text-ink-700" />
+                    </div>
                   </Card>
                 </Link>
               );
