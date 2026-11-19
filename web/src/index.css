@@ -1,0 +1,52 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', monospace;
+
+  /* Ink: deep navy for trust & structure */
+  --color-ink-50: #f3f6fb;
+  --color-ink-100: #e4eaf4;
+  --color-ink-200: #c9d4e7;
+  --color-ink-300: #9fb1d1;
+  --color-ink-400: #6f87b3;
+  --color-ink-500: #4c6593;
+  --color-ink-600: #3a4f78;
+  --color-ink-700: #2b3c5d;
+  --color-ink-800: #1b2a45;
+  --color-ink-900: #11284b;
+  --color-ink-950: #0a1830;
+
+  /* Verified: emerald */
+  --color-ok-50: #ecfdf5;
+  --color-ok-100: #d1fae5;
+  --color-ok-500: #10b981;
+  --color-ok-600: #059669;
+  --color-ok-700: #047857;
+
+  /* Disputed: amber */
+  --color-warn-50: #fffbeb;
+  --color-warn-100: #fef3c7;
+  --color-warn-500: #f59e0b;
+  --color-warn-700: #b45309;
+
+  --color-paper: #f7f6f2;
+}
+
+body {
+  @apply bg-paper text-ink-900 antialiased;
+}
+
+/* Subtle grid used behind hero / empty states */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, rgb(17 40 75 / 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(17 40 75 / 0.06) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.animate-rise { animation: rise 0.45s ease-out both; }
