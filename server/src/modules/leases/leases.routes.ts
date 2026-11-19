@@ -61,6 +61,8 @@ const createBody = z.object({
     city: z.string().trim().min(2).max(60),
     propertyType: z.enum(['APARTMENT', 'INDEPENDENT_HOUSE', 'ROOM', 'PG']),
     rooms: z.array(z.string().trim().min(2).max(40)).min(1).max(15),
+    latitude: z.number().min(-90).max(90).optional(),
+    longitude: z.number().min(-180).max(180).optional(),
   }),
   startDate: z.string().date(),
   endDate: z.string().date().optional(),
@@ -78,6 +80,8 @@ leasesRouter.post('/', validate({ body: createBody }), async (req, res) => {
         addressLine: body.property.addressLine,
         city: body.property.city,
         propertyType: body.property.propertyType,
+        latitude: body.property.latitude ?? null,
+        longitude: body.property.longitude ?? null,
         rooms: { create: body.property.rooms.map((name, i) => ({ name, sortOrder: i })) },
       },
     });
@@ -128,8 +132,9 @@ leasesRouter.get('/:id', validate({ params: idParams }), async (req, res) => {
     ...i,
     itemCount: items.length,
     documented: items.filter((x) => x.condition !== null).length,
-    approved: items.filter((x) => x.reviewStatus === 'APPROVED').length,
+    approved: items.filter((x) => x.reviewStatus === 'APPROVED' || x.reviewStatus === 'NOTED').length,
     disputed: items.filter((x) => x.reviewStatus === 'DISPUTED').length,
+    noted: items.filter((x) => x.reviewStatus === 'NOTED').length,
   }));
 
   res.json({
@@ -140,6 +145,40 @@ leasesRouter.get('/:id', validate({ params: idParams }), async (req, res) => {
       stage: stageOf(lease, lease.inspections, lease.settlement),
     },
   });
+});
+
+// ---------- Map pin ----------
+
+const locationBody = z.object({
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+});
+
+/**
+ * Pin (or move) the property on the map. Once an inspection is agreed the
+ * pin is part of the evidence, so it can't move any more.
+ */
+leasesRouter.patch('/:id/location', validate({ params: idParams, body: locationBody }), async (req, res) => {
+  const { id } = res.locals.params as z.infer<typeof idParams>;
+  const { latitude, longitude } = res.locals.body as z.infer<typeof locationBody>;
+  const me = userId(req);
+  const { lease } = await requireLease(id, me);
+  const locked = await prisma.inspection.count({ where: { leaseId: id, status: 'FINALIZED' } });
+  if (locked) throw ApiError.conflict('LOCKED', 'The location is locked once an inspection has been agreed');
+
+  const property = await prisma.$transaction(async (tx) => {
+    const p = await tx.property.update({ where: { id: lease.propertyId }, data: { latitude, longitude } });
+    await appendAudit(tx, {
+      leaseId: id,
+      actorId: me,
+      action: 'property.pinned',
+      entityType: 'Property',
+      entityId: p.id,
+      data: { latitude: Number(latitude.toFixed(6)), longitude: Number(longitude.toFixed(6)) },
+    });
+    return p;
+  });
+  res.json({ property });
 });
 
 // ---------- Invitations ----------

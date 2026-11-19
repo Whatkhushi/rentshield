@@ -7,6 +7,7 @@ import { prisma } from '../../db.js';
 import { config } from '../../config.js';
 import { accessFor, requireItem } from '../../lib/access.js';
 import { appendAudit } from '../../lib/audit.js';
+import { readPhotoMetadata, validLatLng } from '../../lib/geo.js';
 import { ApiError } from '../../lib/errors.js';
 import { storage, type StoredFile } from '../../lib/storage.js';
 import { requireAuth, userId } from '../../middleware/auth.js';
@@ -62,6 +63,32 @@ export function uploadErrors(err: unknown, _req: Request, _res: Response, next: 
   next(err);
 }
 
+interface PhotoMeta {
+  takenAt: Date | null;
+  latitude: number | null;
+  longitude: number | null;
+  locationSource: 'EXIF' | 'DEVICE' | null;
+}
+
+async function readStored(key: string): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  for await (const c of storage.get(key)) chunks.push(c as Buffer);
+  return Buffer.concat(chunks);
+}
+
+/**
+ * Where and when was this photo taken?
+ * 1. EXIF inside the file (set by the phone camera) is preferred.
+ * 2. Otherwise, coordinates the browser reported when the in-app camera
+ *    captured it (browser-made images carry no EXIF).
+ */
+async function photoMeta(f: HashedFile, device: { lat: number; lng: number } | null): Promise<PhotoMeta> {
+  const exif = f.mimetype === 'image/jpeg' ? await readPhotoMetadata(await readStored(f.key)) : { takenAt: null, gps: null };
+  if (exif.gps) return { takenAt: exif.takenAt, latitude: exif.gps.latitude, longitude: exif.gps.longitude, locationSource: 'EXIF' };
+  if (device) return { takenAt: exif.takenAt ?? new Date(), latitude: device.lat, longitude: device.lng, locationSource: 'DEVICE' };
+  return { takenAt: exif.takenAt, latitude: null, longitude: null, locationSource: null };
+}
+
 export async function recordEvidence(opts: {
   files: HashedFile[];
   kind: EvidenceKind;
@@ -69,12 +96,15 @@ export async function recordEvidence(opts: {
   actorId: number;
   itemId?: number;
   deductionId?: number;
+  device?: { lat: number; lng: number } | null;
 }) {
   if (!opts.files?.length) throw ApiError.badRequest('No files were uploaded');
   try {
+    const metas = await Promise.all(opts.files.map((f) => (opts.kind === 'PHOTO' ? photoMeta(f, opts.device ?? null) : null)));
     return await prisma.$transaction(async (tx) => {
       const rows = [];
-      for (const f of opts.files) {
+      for (const [i, f] of opts.files.entries()) {
+        const meta = metas[i];
         const row = await tx.evidence.create({
           data: {
             kind: opts.kind,
@@ -86,6 +116,7 @@ export async function recordEvidence(opts: {
             mimeType: f.mimetype,
             sizeBytes: f.size,
             sha256: f.sha256,
+            ...(meta ?? {}),
           },
         });
         await appendAudit(tx, {
@@ -94,7 +125,16 @@ export async function recordEvidence(opts: {
           action: 'evidence.uploaded',
           entityType: 'Evidence',
           entityId: row.id,
-          data: { kind: opts.kind, itemId: opts.itemId ?? null, deductionId: opts.deductionId ?? null, sha256: f.sha256, size: f.size },
+          data: {
+            kind: opts.kind,
+            itemId: opts.itemId ?? null,
+            deductionId: opts.deductionId ?? null,
+            sha256: f.sha256,
+            size: f.size,
+            // Location is part of the record, so it's chained too.
+            location: meta?.latitude != null ? { lat: Number(meta.latitude.toFixed(6)), lng: Number(meta.longitude!.toFixed(6)), source: meta.locationSource } : null,
+            takenAt: meta?.takenAt?.toISOString() ?? null,
+          },
         });
         rows.push(row);
       }
@@ -126,12 +166,16 @@ evidenceRouter.post(
   uploadErrors,
   async (req: Request, res: Response) => {
     const { id } = res.locals.params as z.infer<typeof idParams>;
+    // Optional: coordinates the phone reported when the in-app camera fired.
+    const lat = Number(req.body?.deviceLat);
+    const lng = Number(req.body?.deviceLng);
     const rows = await recordEvidence({
       files: req.files as HashedFile[],
       kind: 'PHOTO',
       leaseId: res.locals.access.leaseId,
       actorId: userId(req),
       itemId: id,
+      device: validLatLng(lat, lng) ? { lat, lng } : null,
     });
     res.status(201).json({ evidence: rows.map(publicEvidence) });
   },
@@ -148,6 +192,10 @@ export const publicEvidence = (e: {
   sha256: string;
   uploadedAt: Date;
   uploadedById: number;
+  takenAt: Date | null;
+  latitude: number | null;
+  longitude: number | null;
+  locationSource: 'EXIF' | 'DEVICE' | null;
 }) => ({
   id: e.id,
   kind: e.kind,
@@ -157,6 +205,10 @@ export const publicEvidence = (e: {
   sha256: e.sha256,
   uploadedAt: e.uploadedAt,
   uploadedById: e.uploadedById,
+  takenAt: e.takenAt,
+  latitude: e.latitude,
+  longitude: e.longitude,
+  locationSource: e.locationSource,
 });
 
 // ---------- Read / verify / delete ----------

@@ -51,6 +51,12 @@ enum ReviewStatus {
   PENDING
   APPROVED
   DISPUTED
+  NOTED // reviewer disagrees, but both views are recorded so the inspection can still lock
+}
+
+enum LocationSource {
+  EXIF // GPS embedded in the photo by the camera
+  DEVICE // reported by the browser at capture time
 }
 
 enum EvidenceKind {
@@ -106,6 +112,9 @@ model Property {
   addressLine  String
   city         String
   propertyType PropertyType
+  // Pinned on the map by either party; used to check where photos were taken.
+  latitude     Float?
+  longitude    Float?
   createdAt    DateTime     @default(now())
   rooms        Room[]
   leases       Lease[]
@@ -222,6 +231,11 @@ model Evidence {
   sizeBytes    Int
   sha256       String
   uploadedAt   DateTime        @default(now())
+  // From the photo's EXIF metadata (or the device, for in-app camera shots).
+  takenAt        DateTime?
+  latitude       Float?
+  longitude      Float?
+  locationSource LocationSource?
 
   @@index([itemId])
   @@index([deductionId])

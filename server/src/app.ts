@@ -39,8 +39,10 @@ export function createApp() {
           req: (req) => ({ method: req.method, url: req.url }),
           res: (res) => ({ status: res.statusCode }),
         },
-        customSuccessMessage: (req, res, ms) => `${req.method} ${req.url} → ${res.statusCode} (${Math.round(ms)}ms)`,
-        customErrorMessage: (req, res) => `${req.method} ${req.url} → ${res.statusCode}`,
+        // originalUrl: the full path, even inside nested routers.
+        customSuccessMessage: (req, res, ms) =>
+          `${req.method} ${(req as express.Request).originalUrl ?? req.url} -> ${res.statusCode} (${Math.round(ms)}ms)`,
+        customErrorMessage: (req, res) => `${req.method} ${(req as express.Request).originalUrl ?? req.url} -> ${res.statusCode}`,
       }),
     );
   }

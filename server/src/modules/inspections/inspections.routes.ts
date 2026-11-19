@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { Prisma } from '@prisma/client';
+import { Prisma, type ReviewStatus } from '@prisma/client';
+import { checkPhoto } from '../../lib/geo.js';
 import { prisma } from '../../db.js';
 import { requireInspection, requireItem, requireLease } from '../../lib/access.js';
 import { appendAudit } from '../../lib/audit.js';
 import { checklistFor } from '../../lib/checklists.js';
 import { ApiError } from '../../lib/errors.js';
+import { storage } from '../../lib/storage.js';
 import { sha256 } from '../../lib/tokens.js';
 import { requireAuth, userId } from '../../middleware/auth.js';
 import { validate } from '../../middleware/validate.js';
@@ -15,10 +17,32 @@ inspectionsRouter.use(requireAuth);
 
 const idParams = z.object({ id: z.coerce.number().int().positive() });
 
-const evidenceSelect = {
-  select: { id: true, kind: true, originalName: true, mimeType: true, sizeBytes: true, sha256: true, uploadedAt: true, uploadedById: true },
+export const evidenceSelect = {
+  select: {
+    id: true,
+    kind: true,
+    originalName: true,
+    mimeType: true,
+    sizeBytes: true,
+    sha256: true,
+    uploadedAt: true,
+    uploadedById: true,
+    takenAt: true,
+    latitude: true,
+    longitude: true,
+    locationSource: true,
+  },
   orderBy: { id: 'asc' as const },
 };
+
+type EvRow = Parameters<typeof checkPhoto>[0] & Record<string, unknown>;
+type Pin = { latitude: number | null; longitude: number | null };
+
+/** Attach the location/time verdict to every photo. */
+export const withChecks = <T extends EvRow>(evidence: T[], property: Pin) => evidence.map((e) => ({ ...e, check: checkPhoto(e, property) }));
+
+/** Counts as "settled" for finalization: agreed, or disagreement recorded by both. */
+const RESOLVED: ReviewStatus[] = ['APPROVED', 'NOTED'];
 
 // ---------- Start an inspection ----------
 
@@ -98,10 +122,17 @@ inspectionsRouter.get('/inspections/:id', validate({ params: idParams }), async 
   const { id } = res.locals.params as z.infer<typeof idParams>;
   const me = userId(req);
   const { role, otherPartyId } = await requireInspection(id, me);
-  const { lease, ...inspection } = await loadInspection(id);
+  const { lease, items, ...inspection } = await loadInspection(id);
+  const pin = lease.property;
   res.json({
     inspection: {
       ...inspection,
+      items: items.map((it) => ({
+        ...it,
+        evidence: withChecks(it.evidence, pin),
+        baselineItem: it.baselineItem && { ...it.baselineItem, evidence: withChecks(it.baselineItem.evidence, pin) },
+      })),
+      property: { latitude: pin.latitude, longitude: pin.longitude },
       rooms: lease.property.rooms,
       myRole: role,
       isAuthor: inspection.authorId === me,
@@ -116,7 +147,8 @@ inspectionsRouter.get('/inspections/:id/comparison', validate({ params: idParams
   const { inspection } = await requireInspection(id, userId(req));
   if (inspection.type !== 'MOVE_OUT') throw ApiError.badRequest('Comparison is only available for the move-out inspection');
   const full = await loadInspection(id);
-  const rooms = new Map(full.lease.property.rooms.map((r) => [r.id, r.name]));
+  const pin = full.lease.property;
+  const rooms = new Map(pin.rooms.map((r) => [r.id, r.name]));
   res.json({
     pairs: full.items.map((it) => ({
       room: rooms.get(it.roomId),
@@ -126,9 +158,9 @@ inspectionsRouter.get('/inspections/:id/comparison', validate({ params: idParams
         itemId: it.baselineItem.id,
         condition: it.baselineItem.condition,
         notes: it.baselineItem.notes,
-        evidence: it.baselineItem.evidence,
+        evidence: withChecks(it.baselineItem.evidence, pin),
       },
-      moveOut: { itemId: it.id, condition: it.condition, notes: it.notes, evidence: it.evidence, reviewStatus: it.reviewStatus },
+      moveOut: { itemId: it.id, condition: it.condition, notes: it.notes, evidence: withChecks(it.evidence, pin), reviewStatus: it.reviewStatus },
     })),
   });
 });
@@ -234,12 +266,89 @@ inspectionsRouter.post('/inspections/:id/submit', validate({ params: idParams })
   res.json({ inspection: await prisma.inspection.findUniqueOrThrow({ where: { id } }) });
 });
 
+// ---------- Shaping the checklist (author, while drafting) ----------
+
+/** Shared guard: only the author, only while the inspection is a draft. */
+async function requireDraftAuthor(inspectionId: number, me: number) {
+  const ctx = await requireInspection(inspectionId, me);
+  if (ctx.inspection.authorId !== me) throw ApiError.forbidden('Only the person documenting this inspection can change the checklist');
+  if (ctx.inspection.status !== 'DRAFT') throw ApiError.conflict('LOCKED', 'The checklist can only change while drafting');
+  return ctx;
+}
+
+const addItemBody = z.object({ roomId: z.number().int().positive(), name: z.string().trim().min(2).max(60) });
+
+/** Add something the standard checklist doesn't cover ("Sofa", "Washing machine"). */
+inspectionsRouter.post('/inspections/:id/items', validate({ params: idParams, body: addItemBody }), async (req, res) => {
+  const { id } = res.locals.params as z.infer<typeof idParams>;
+  const { roomId, name } = res.locals.body as z.infer<typeof addItemBody>;
+  const me = userId(req);
+  const { inspection } = await requireDraftAuthor(id, me);
+  if (inspection.type !== 'MOVE_IN') throw ApiError.conflict('MOVE_OUT_FIXED', 'Move-out uses exactly the agreed move-in items');
+
+  const room = await prisma.room.findFirst({ where: { id: roomId, property: { leases: { some: { id: inspection.leaseId } } } } });
+  if (!room) throw ApiError.badRequest('That room is not part of this property');
+
+  const item = await prisma.$transaction(async (tx) => {
+    const last = await tx.inspectionItem.aggregate({ where: { inspectionId: id, roomId }, _max: { sortOrder: true } });
+    const created = await tx.inspectionItem.create({
+      data: { inspectionId: id, roomId, name, sortOrder: (last._max.sortOrder ?? -1) + 1 },
+      include: { evidence: evidenceSelect, baselineItem: { include: { evidence: evidenceSelect } } },
+    });
+    await appendAudit(tx, { leaseId: inspection.leaseId, actorId: me, action: 'item.added', entityType: 'InspectionItem', entityId: created.id, data: { room: room.name, item: name } });
+    return created;
+  });
+  res.status(201).json({ item });
+});
+
+/** Remove an item that doesn't exist in this flat (instead of marking it N/A). */
+inspectionsRouter.delete('/items/:id', validate({ params: idParams }), async (req, res) => {
+  const { id } = res.locals.params as z.infer<typeof idParams>;
+  const me = userId(req);
+  const { item, inspection } = await requireItem(id, me);
+  await requireDraftAuthor(inspection.id, me);
+  if (inspection.type !== 'MOVE_IN') throw ApiError.conflict('MOVE_OUT_FIXED', 'Move-out uses exactly the agreed move-in items');
+  const left = await prisma.inspectionItem.count({ where: { inspectionId: inspection.id } });
+  if (left <= 1) throw ApiError.conflict('LAST_ITEM', 'An inspection needs at least one item');
+
+  const files = await prisma.evidence.findMany({ where: { itemId: id }, select: { storageKey: true } });
+  await prisma.$transaction(async (tx) => {
+    await tx.inspectionItem.delete({ where: { id } }); // evidence rows cascade
+    await appendAudit(tx, { leaseId: inspection.leaseId, actorId: me, action: 'item.removed', entityType: 'InspectionItem', entityId: id, data: { item: item.name, photos: files.length } });
+  });
+  await Promise.all(files.map((f) => storage.remove(f.storageKey)));
+  res.status(204).end();
+});
+
+const roomParams = z.object({ id: z.coerce.number().int().positive(), roomId: z.coerce.number().int().positive() });
+
+/** "Everything else in this room is fine": set GOOD on every item still without a condition. */
+inspectionsRouter.post('/inspections/:id/rooms/:roomId/mark-good', validate({ params: roomParams }), async (req, res) => {
+  const { id, roomId } = res.locals.params as z.infer<typeof roomParams>;
+  const me = userId(req);
+  const { inspection } = await requireDraftAuthor(id, me);
+  const count = await prisma.$transaction(async (tx) => {
+    const r = await tx.inspectionItem.updateMany({
+      where: { inspectionId: id, roomId, condition: null },
+      data: { condition: 'GOOD', version: { increment: 1 } },
+    });
+    if (r.count) {
+      await appendAudit(tx, { leaseId: inspection.leaseId, actorId: me, action: 'items.marked_good', entityType: 'Room', entityId: roomId, data: { count: r.count } });
+    }
+    return r.count;
+  });
+  res.json({ updated: count });
+});
+
 // ---------- Reviewer ----------
 
 const reviewBody = z
   .object({
     version: z.number().int().positive(),
-    decision: z.enum(['APPROVED', 'DISPUTED']),
+    // DISPUTED: send it back to be revised.
+    // NOTED: "we disagree, record both views" - resolves the item so one
+    // stubborn disagreement can't block the whole record from locking.
+    decision: z.enum(['APPROVED', 'DISPUTED', 'NOTED']),
     comment: z.string().trim().max(1000).optional(),
   })
   .refine((b) => b.decision === 'APPROVED' || (b.comment && b.comment.length >= 3), {
@@ -271,13 +380,13 @@ inspectionsRouter.post('/items/:id/review', validate({ params: idParams, body: r
     await appendAudit(tx, {
       leaseId: inspection.leaseId,
       actorId: me,
-      action: decision === 'APPROVED' ? 'item.approved' : 'item.disputed',
+      action: { APPROVED: 'item.approved', DISPUTED: 'item.disputed', NOTED: 'item.noted' }[decision],
       entityType: 'InspectionItem',
       entityId: id,
       data: { item: item.name, comment: comment ?? null, version: version + 1 },
     });
 
-    const remaining = await tx.inspectionItem.count({ where: { inspectionId: inspection.id, reviewStatus: { not: 'APPROVED' } } });
+    const remaining = await tx.inspectionItem.count({ where: { inspectionId: inspection.id, reviewStatus: { notIn: RESOLVED } } });
     let finalized = false;
     if (remaining === 0) {
       await tx.inspection.update({ where: { id: inspection.id }, data: { status: 'FINALIZED', finalizedAt: new Date() } });
@@ -318,7 +427,7 @@ inspectionsRouter.post('/inspections/:id/approve-all', validate({ params: idPara
       entityId: id,
       data: { count: r.count },
     });
-    const remaining = await tx.inspectionItem.count({ where: { inspectionId: id, reviewStatus: { not: 'APPROVED' } } });
+    const remaining = await tx.inspectionItem.count({ where: { inspectionId: id, reviewStatus: { notIn: RESOLVED } } });
     if (remaining > 0) return false;
     await tx.inspection.update({ where: { id }, data: { status: 'FINALIZED', finalizedAt: new Date() } });
     await appendAudit(tx, {

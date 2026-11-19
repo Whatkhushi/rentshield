@@ -3,6 +3,7 @@ import PDFDocument from 'pdfkit';
 import { prisma } from '../../db.js';
 import { logger } from '../../logger.js';
 import { verifyChain } from '../../lib/audit.js';
+import { AT_PROPERTY_METERS, checkPhoto, describePlace } from '../../lib/geo.js';
 import { storage } from '../../lib/storage.js';
 import { totals } from '../settlements/settlements.routes.js';
 
@@ -115,8 +116,12 @@ async function render(d: Data, chain: Awaited<ReturnType<typeof verifyChain>>, r
     if (insp.generalNotes) kv('Notes', insp.generalNotes);
 
     const approved = insp.items.filter((i) => i.reviewStatus === 'APPROVED').length;
+    const noted = insp.items.filter((i) => i.reviewStatus === 'NOTED').length;
     const disputed = insp.items.filter((i) => i.reviewStatus === 'DISPUTED').length;
-    kv('Items', `${insp.items.length} total | ${approved} agreed | ${disputed} disputed | ${insp.items.length - approved - disputed} pending`);
+    kv(
+      'Items',
+      `${insp.items.length} total | ${approved} agreed | ${noted} disagreement recorded | ${disputed} disputed | ${insp.items.length - approved - noted - disputed} pending`,
+    );
 
     let currentRoom = -1;
     for (const it of insp.items) {
@@ -128,9 +133,12 @@ async function render(d: Data, chain: Awaited<ReturnType<typeof verifyChain>>, r
       const photos = it.evidence.filter((e) => e.mimeType === 'image/jpeg' || e.mimeType === 'image/png').slice(0, 4);
       ensure(photos.length ? 150 : 40);
       doc.font('Helvetica-Bold').fontSize(10).fillColor('#111').text(it.name, { continued: true });
-      doc.font('Helvetica').fillColor(MUTED).text(`   ${label(it.condition)}  ·  ${label(it.reviewStatus)}`);
-      if (it.notes) body(`Notes: ${it.notes}`);
-      if (it.reviewComment) body(`Reviewer: ${it.reviewComment}`, '#9a3412');
+      doc
+        .font('Helvetica')
+        .fillColor(MUTED)
+        .text(`   ${label(it.condition)}  ·  ${it.reviewStatus === 'NOTED' ? 'Disagreement recorded' : label(it.reviewStatus)}`);
+      if (it.notes) body(`${it.reviewStatus === 'NOTED' ? 'Documented as' : 'Notes'}: ${it.notes}`);
+      if (it.reviewComment) body(`${it.reviewStatus === 'NOTED' ? 'Reviewer’s view' : 'Reviewer'}: ${it.reviewComment}`, '#9a3412');
       if (photos.length) {
         const y = doc.y + 4;
         let x = 48;
@@ -191,7 +199,7 @@ async function render(d: Data, chain: Awaited<ReturnType<typeof verifyChain>>, r
     ...(d.settlement?.deductions.flatMap((x) => x.evidence) ?? []),
   ];
   for (const e of allEvidence) {
-    ensure(28);
+    ensure(36);
     let ok = false;
     try {
       ok = (await storage.hash(e.storageKey)) === e.sha256;
@@ -199,7 +207,20 @@ async function render(d: Data, chain: Awaited<ReturnType<typeof verifyChain>>, r
       ok = false;
     }
     doc.font('Helvetica-Bold').fontSize(8).fillColor(ok ? '#166534' : '#b91c1c').text(`${ok ? 'VERIFIED' : 'MISMATCH'}  #${e.id}  ${e.originalName}`);
-    doc.font('Courier').fontSize(7).fillColor(MUTED).text(`${e.sha256}  ·  ${fmt(e.uploadedAt)}  ·  by ${users.get(e.uploadedById) ?? '-'}`);
+    doc.font('Courier').fontSize(7).fillColor(MUTED).text(`${e.sha256}  ·  uploaded ${fmt(e.uploadedAt)}  ·  by ${users.get(e.uploadedById) ?? '-'}`);
+    if (e.kind === 'PHOTO') {
+      const c = checkPhoto(e, d.property);
+      const time = c.takenAt ? `taken ${fmt(c.takenAt)}${c.stale ? ` (${Math.round(c.ageDays!)} days before upload)` : ''}` : 'capture time unknown';
+      doc
+        .font('Helvetica')
+        .fontSize(7)
+        .fillColor(c.place === 'AWAY' || c.stale ? '#b45309' : MUTED)
+        .text(`${describePlace(c)}  ·  ${time}`);
+    }
+  }
+  if (d.property.latitude !== null) {
+    doc.moveDown(0.4);
+    body(`Property pinned at ${d.property.latitude!.toFixed(5)}, ${d.property.longitude!.toFixed(5)}. “At the property” means within ${AT_PROPERTY_METERS} m.`, MUTED);
   }
   if (allEvidence.length === 0) body('No files uploaded.', MUTED);
 
