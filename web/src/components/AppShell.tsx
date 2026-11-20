@@ -11,34 +11,23 @@ import { Avatar, Spinner } from './ui';
 function Footer() {
   const { t } = useI18n();
   return (
-    <footer className="mt-20 border-t border-ink-100">
-      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-10 text-sm sm:grid-cols-[1fr_auto] sm:px-6">
-        <div>
-          <div className="flex items-center gap-2 font-bold text-ink-900">
-            <ShieldMark className="size-6 text-ink-900" />
-            RentShield
-          </div>
-          <p className="mt-2 max-w-sm text-ink-500">{t('Fair deposits, on record. Document the handover together, settle it with evidence.')}</p>
+    // A tinted band (ink-50) so the footer reads as separate from the page.
+    <footer className="mt-20 border-t border-ink-100 bg-ink-50">
+      {/* Extra space at the bottom/right so the floating Help button never covers footer text. */}
+      <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 pt-6 pb-20 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:pb-6 xl:pr-6 sm:pr-36">
+        <div className="flex items-center gap-2 font-bold text-ink-900">
+          <ShieldMark className="size-5 text-ink-900" />
+          RentShield
         </div>
-        <nav className="flex gap-10 text-ink-500">
-          <div className="flex flex-col gap-2">
-            <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">{t('Product')}</p>
-            <Link to="/app" className="hover:text-ink-900">
-              {t('Your tenancies')}
-            </Link>
-            <Link to="/app/new" className="hover:text-ink-900">
-              {t('New tenancy')}
-            </Link>
-          </div>
-          <div className="flex flex-col gap-2">
-            <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">{t('Support')}</p>
-            <span>{t('Help assistant')}</span>
-            <span>{t('Available in Hindi')}</span>
-          </div>
+        <nav className="flex gap-6 text-ink-600">
+          <Link to="/app" className="hover:text-ink-900 hover:underline">
+            {t('Your tenancies')}
+          </Link>
+          <Link to="/app/new" className="hover:text-ink-900 hover:underline">
+            {t('New tenancy')}
+          </Link>
         </nav>
-      </div>
-      <div className="border-t border-ink-100">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-4 text-xs text-ink-400 sm:px-6">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-500">
           <span>© {new Date().getFullYear()} RentShield</span>
           <span className="flex items-center gap-1">
             {t('Made with')} <Heart className="size-3 fill-red-500 text-red-500" /> {t('in India')}
@@ -62,7 +51,8 @@ export default function AppShell() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-40 border-b border-ink-100 bg-paper/85 backdrop-blur-md">
+      {/* White (light) / raised navy (dark) bar, distinct from the page background. */}
+      <header className="sticky top-0 z-40 border-b border-ink-100 bg-white/95 shadow-[0_1px_3px_rgb(17_40_75/0.05)] backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <Logo to="/app" />
           <div className="flex items-center gap-1.5 sm:gap-3">

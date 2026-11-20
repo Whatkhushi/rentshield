@@ -7,6 +7,7 @@ import { requireLease } from '../../lib/access.js';
 import { appendAudit } from '../../lib/audit.js';
 import { ApiError } from '../../lib/errors.js';
 import { newOpaqueToken } from '../../lib/tokens.js';
+import { storage } from '../../lib/storage.js';
 import { requireAuth, userId } from '../../middleware/auth.js';
 import { validate } from '../../middleware/validate.js';
 
@@ -145,6 +146,44 @@ leasesRouter.get('/:id', validate({ params: idParams }), async (req, res) => {
       stage: stageOf(lease, lease.inspections, lease.settlement),
     },
   });
+});
+
+// ---------- Delete ----------
+
+/**
+ * Delete a tenancy created by mistake. Allowed only while nobody else has
+ * joined: once the other person is in, the record belongs to both of them
+ * and one side must not be able to erase it.
+ */
+leasesRouter.delete('/:id', validate({ params: idParams }), async (req, res) => {
+  const { id } = res.locals.params as z.infer<typeof idParams>;
+  const { lease, otherPartyId } = await requireLease(id, userId(req));
+  if (otherPartyId) {
+    throw ApiError.conflict(
+      'SHARED_TENANCY',
+      'The other person has already joined, so this record belongs to both of you and can’t be deleted.',
+    );
+  }
+
+  // Files to remove from storage after the database rows are gone.
+  const [evidence, reports] = await Promise.all([
+    prisma.evidence.findMany({
+      where: { OR: [{ item: { inspection: { leaseId: id } } }, { deduction: { settlement: { leaseId: id } } }] },
+      select: { storageKey: true },
+    }),
+    prisma.report.findMany({ where: { leaseId: id, storageKey: { not: null } }, select: { storageKey: true } }),
+  ]);
+
+  await prisma.$transaction(async (tx) => {
+    // The only place the audit trigger allows DELETE; SET LOCAL ends with this transaction.
+    await tx.$executeRaw`SELECT set_config('rentshield.purge', 'on', true)`;
+    // Deleting the property cascades to the lease, rooms, inspections, items,
+    // evidence rows, settlement, reports, invitations and audit events.
+    await tx.property.delete({ where: { id: lease.propertyId } });
+  });
+
+  await Promise.all([...evidence, ...reports].map((f) => storage.remove(f.storageKey!)));
+  res.status(204).end();
 });
 
 // ---------- Map pin ----------

@@ -87,6 +87,8 @@ export default function Assistant() {
   const leaseId = match ? Number(match.params.id) : undefined;
 
   const status = useQuery({ queryKey: ['assistant-status'], queryFn: () => api<{ enabled: boolean }>('/assistant/status'), enabled: open });
+  // Until the server has an API key, don't let people type into a chat that can't answer.
+  const off = status.data?.enabled === false;
 
   useEffect(() => {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: 'smooth' });
@@ -96,7 +98,7 @@ export default function Assistant() {
 
   async function ask(text: string) {
     const question = text.trim();
-    if (!question || busy) return;
+    if (!question || busy || off) return;
     const history = [...messages.filter((m) => !m.error), { role: 'user' as const, content: question }];
     setMessages([...history, { role: 'assistant', content: '' }]);
     setInput('');
@@ -204,7 +206,7 @@ export default function Assistant() {
                 {t('The assistant isn’t switched on yet. The site owner needs to add an ANTHROPIC_API_KEY to the server.')}
               </div>
             )}
-            {messages.length === 0 && (
+            {messages.length === 0 && !off && (
               <div className="py-4 text-center">
                 <p className="text-sm text-ink-600">
                   {leaseId ? t('I can see this tenancy’s status. Ask me anything about it or about using RentShield.') : t('Ask me how anything in RentShield works.')}
@@ -262,12 +264,14 @@ export default function Assistant() {
                     ask(input);
                   }
                 }}
-                placeholder={t('Type your question…')}
-                className="max-h-28 min-h-10 flex-1 resize-none rounded-xl border-0 bg-ink-50 px-3 py-2.5 text-sm text-ink-900 placeholder:text-ink-400 focus:ring-2 focus:ring-ink-700 focus:outline-none"
+                placeholder={off ? t('The assistant is turned off') : t('Type your question…')}
+                disabled={off}
+                className="max-h-28 min-h-10 flex-1 resize-none rounded-xl border-0 bg-ink-50 px-3 py-2.5 text-sm text-ink-900 placeholder:text-ink-400 focus:ring-2 focus:ring-ink-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
               />
               {SpeechRecognition && (
                 <button
                   type="button"
+                  disabled={off}
                   onClick={toggleMic}
                   className={cx('grid size-10 shrink-0 place-items-center rounded-xl', listening ? 'bg-red-600 text-white' : 'bg-ink-50 text-ink-600 hover:bg-ink-100')}
                   title={listening ? t('Stop listening') : t('Speak your question')}
@@ -286,7 +290,7 @@ export default function Assistant() {
                   <Square className="size-3.5" />
                 </button>
               ) : (
-                <button type="submit" disabled={!input.trim()} className="grid size-10 shrink-0 place-items-center rounded-xl bg-ink-900 text-white disabled:opacity-40" aria-label={t('Send')}>
+                <button type="submit" disabled={!input.trim() || off} className="grid size-10 shrink-0 place-items-center rounded-xl bg-ink-900 text-white disabled:opacity-40" aria-label={t('Send')}>
                   <Send className="size-4" />
                 </button>
               )}

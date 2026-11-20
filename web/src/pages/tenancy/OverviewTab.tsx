@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, Check, ClipboardCheck, Copy, Link2, MapPin, Scale, Send } from 'lucide-react';
+import { ArrowRight, Check, ClipboardCheck, Copy, Link2, MapPin, Scale, Send, Trash2 } from 'lucide-react';
 import { api } from '../../lib/api';
 import { cityCentre } from '../../lib/device';
 import { dateShort, inr, PROPERTY_TYPES } from '../../lib/format';
@@ -177,6 +177,58 @@ function LocationCard({ lease }: { lease: LeaseDetail }) {
   );
 }
 
+/**
+ * Delete a tenancy made by mistake. Only possible while the other person
+ * hasn't joined; after that the record belongs to both of them.
+ */
+function DeleteTenancy({ lease }: { lease: LeaseDetail }) {
+  const t = useT();
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const [confirming, setConfirming] = useState(false);
+  const otherJoined = lease.myRole === 'TENANT' ? lease.landlord : lease.tenant;
+  const remove = useMutation({
+    mutationFn: () => api(`/leases/${lease.id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['leases'] });
+      navigate('/app', { replace: true });
+    },
+  });
+
+  if (otherJoined) {
+    return (
+      <p className="px-1 text-xs leading-relaxed text-ink-400">
+        {t('This tenancy can’t be deleted because the other person has joined. The record belongs to both of you.')}
+      </p>
+    );
+  }
+  return (
+    <>
+      <button onClick={() => setConfirming(true)} className="flex items-center gap-1.5 px-1 text-sm font-medium text-red-600 hover:underline">
+        <Trash2 className="size-4" /> {t('Delete this tenancy')}
+      </button>
+      <Modal open={confirming} onClose={() => setConfirming(false)} title={t('Delete this tenancy?')}>
+        <p className="text-sm text-ink-600">
+          {t('This permanently deletes {address}, its inspection, photos and history. It can’t be undone. The invite link will stop working.', {
+            address: lease.property.addressLine,
+          })}
+        </p>
+        {remove.error && (
+          <p className="mt-3 text-sm text-red-600">{t((remove.error as Error).message)}</p>
+        )}
+        <div className="mt-6 flex justify-end gap-2">
+          <Button variant="secondary" onClick={() => setConfirming(false)}>
+            {t('Cancel')}
+          </Button>
+          <Button variant="danger" disabled={remove.isPending} onClick={() => remove.mutate()}>
+            <Trash2 className="size-4" /> {remove.isPending ? t('Deleting…') : t('Delete permanently')}
+          </Button>
+        </div>
+      </Modal>
+    </>
+  );
+}
+
 export default function OverviewTab({ lease }: { lease: LeaseDetail }) {
   const moveIn = lease.inspections.find((i) => i.type === 'MOVE_IN');
   const moveOut = lease.inspections.find((i) => i.type === 'MOVE_OUT');
@@ -288,6 +340,7 @@ export default function OverviewTab({ lease }: { lease: LeaseDetail }) {
           </div>
         </Card>
         <LocationCard lease={lease} />
+        <DeleteTenancy lease={lease} />
       </aside>
     </div>
   );

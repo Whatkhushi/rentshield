@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { prisma } from '../src/db.js';
-import { api, bearer, newUser, resetDb, tenancy } from './helpers.js';
+import { api, bearer, newUser, PNG, resetDb, tenancy } from './helpers.js';
 
 beforeEach(resetDb);
 afterAll(() => prisma.$disconnect());
@@ -60,6 +60,41 @@ describe('tenancies and invitations', () => {
       api().post(`/api/v1/invitations/${token}/accept`).set(bearer(b.token)),
     ]);
     expect(results.map((r) => r.status).sort()).toEqual([200, 409]);
+  });
+
+  it('deletes a tenancy (and its photos) while nobody else has joined', async () => {
+    const t = await newUser();
+    const { body } = await api()
+      .post('/api/v1/leases')
+      .set(bearer(t.token))
+      .send({
+        myRole: 'TENANT',
+        property: { addressLine: '3 Brigade Road', city: 'Bengaluru', propertyType: 'ROOM', rooms: ['Room'] },
+        startDate: '2026-04-01',
+        monthlyRent: 9000,
+        securityDeposit: 18000,
+      });
+    const id = body.lease.id;
+    const start = await api().post(`/api/v1/leases/${id}/inspections`).set(bearer(t.token)).send({ type: 'MOVE_IN' });
+    const item = await prisma.inspectionItem.findFirstOrThrow({ where: { inspectionId: start.body.inspection.id } });
+    await api().post(`/api/v1/items/${item.id}/evidence`).set(bearer(t.token)).attach('files', PNG, 'a.png').expect(201);
+
+    await api().delete(`/api/v1/leases/${id}`).set(bearer(t.token)).expect(204);
+    await api().get(`/api/v1/leases/${id}`).set(bearer(t.token)).expect(404);
+    expect(await prisma.evidence.count()).toBe(0);
+    expect(await prisma.auditEvent.count({ where: { leaseId: id } })).toBe(0);
+    expect(await prisma.property.count()).toBe(0);
+  });
+
+  it('refuses to delete once the other person has joined, and outsiders get 404', async () => {
+    const { tenant, landlord, leaseId } = await tenancy();
+    const r = await api().delete(`/api/v1/leases/${leaseId}`).set(bearer(tenant.token)).expect(409);
+    expect(r.body.error.code).toBe('SHARED_TENANCY');
+    await api().delete(`/api/v1/leases/${leaseId}`).set(bearer(landlord.token)).expect(409);
+    const stranger = await newUser();
+    await api().delete(`/api/v1/leases/${leaseId}`).set(bearer(stranger.token)).expect(404);
+    // The audit log still refuses ordinary deletes.
+    await expect(prisma.$executeRawUnsafe(`DELETE FROM "AuditEvent"`)).rejects.toThrow(/append-only/);
   });
 
   it('stores only the hash of an invitation token', async () => {

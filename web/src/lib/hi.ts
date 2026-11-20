@@ -275,6 +275,18 @@ export const HI: Record<string, string> = {
   Rooms: 'कमरे',
   '{n} months’ rent': '{n} महीने का किराया',
 
+  'This tenancy can’t be deleted because the other person has joined. The record belongs to both of you.':
+    'यह किरायेदारी हटाई नहीं जा सकती क्योंकि दूसरा व्यक्ति जुड़ चुका है। यह रिकॉर्ड आप दोनों का है।',
+  'Delete this tenancy': 'यह किरायेदारी हटाएँ',
+  'Delete this tenancy?': 'यह किरायेदारी हटाएँ?',
+  'This permanently deletes {address}, its inspection, photos and history. It can’t be undone. The invite link will stop working.':
+    'इससे {address}, उसकी जाँच, फ़ोटो और इतिहास हमेशा के लिए हट जाएँगे। इसे वापस नहीं लाया जा सकता। इनवाइट लिंक भी काम करना बंद कर देगा।',
+  'Deleting…': 'हटाया जा रहा है…',
+  'Delete permanently': 'हमेशा के लिए हटाएँ',
+  'The other person has already joined, so this record belongs to both of you and can’t be deleted.':
+    'दूसरा व्यक्ति जुड़ चुका है, इसलिए यह रिकॉर्ड आप दोनों का है और हटाया नहीं जा सकता।',
+  'The assistant is turned off': 'सहायक अभी बंद है',
+
   // ---------- Inspection ----------
   'Start the move-in inspection': 'मूव-इन जाँच शुरू करें',
   'Start the move-out inspection': 'मूव-आउट जाँच शुरू करें',
