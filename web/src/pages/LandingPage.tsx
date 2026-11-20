@@ -62,7 +62,7 @@ export default function LandingPage() {
   return (
     <div className="keep-light relative flex min-h-screen flex-col bg-night text-snow">
 
-      <nav className="relative mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-5 sm:px-6">
+      <nav className="relative mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-5 sm:px-6">
         <Logo light />
         <div className="flex items-center gap-2">
           <LanguageToggle onDark />
@@ -77,7 +77,7 @@ export default function LandingPage() {
       </nav>
 
       {/* ---- Hero: the problem and the promise ---- */}
-      <section className="relative mx-auto grid w-full max-w-6xl items-center gap-12 px-4 pt-8 pb-14 sm:px-6 lg:grid-cols-[1.1fr_1fr] lg:pt-14">
+      <section className="relative mx-auto grid w-full max-w-7xl items-center gap-12 px-4 pt-8 pb-14 sm:px-6 lg:grid-cols-[1.1fr_1fr] lg:pt-14">
         <div className="animate-rise">
           <h1 className="text-4xl font-extrabold leading-[1.1] tracking-tight sm:text-6xl">
             {t('Get your deposit back.')}
@@ -106,7 +106,7 @@ export default function LandingPage() {
 
       {/* ---- How it works: one schematic flow ---- */}
       <section className="relative flex-1 border-t border-white/10 bg-ink-900/40">
-        <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+        <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
           <p className="text-sm font-semibold uppercase tracking-wider text-ok-500">{t('How it works')}</p>
           <ol className="mt-6 grid gap-4 md:grid-cols-4">
             {FLOW.map((s, i) => (
@@ -131,7 +131,7 @@ export default function LandingPage() {
         </div>
       </section>
       <footer className="relative border-t border-white/10 py-5">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 text-xs text-ink-400 sm:px-6">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 text-xs text-ink-400 sm:px-6">
           <span>© {new Date().getFullYear()} RentShield</span>
           <span>
             {t('Made with')} <span className="text-red-400">♥</span> {t('in India')}

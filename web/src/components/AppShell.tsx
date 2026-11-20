@@ -14,7 +14,7 @@ function Footer() {
     // Deep navy band (a slightly raised dark surface in dark mode) so it clearly ends the page.
     <footer className="mt-20 bg-night text-snow dark:border-t dark:border-ink-100 dark:bg-white">
       {/* Extra space at the bottom/right so the floating Help button never covers footer text. */}
-      <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 pt-6 pb-20 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:pb-6 xl:pr-6 sm:pr-36">
+      <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 pt-6 pb-20 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:pb-6 xl:pr-6 sm:pr-36">
         <div className="flex items-center gap-2 font-bold text-snow">
           <ShieldMark className="size-5 text-snow" />
           RentShield
@@ -45,7 +45,7 @@ export default function AppShell() {
     <div className="flex min-h-screen flex-col">
       {/* White bar on the grey-blue page (a raised dark surface in dark mode). */}
       <header className="sticky top-0 z-40 border-b border-ink-100 bg-white/90 shadow-[0_1px_2px_rgb(20_27_48/0.04)] backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <Logo to="/app" />
           <div className="flex items-center gap-1.5 sm:gap-3">
             <LanguageToggle />
@@ -69,7 +69,7 @@ export default function AppShell() {
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
         <Outlet />
       </main>
       <Footer />

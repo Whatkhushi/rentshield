@@ -29,14 +29,20 @@ export class QuotaError extends Error {}
 
 // ---------- Gemini ----------
 
+/** Give up on a provider that hasn't finished in this long, and fall back to the FAQ. */
+const AI_TIMEOUT_MS = 25_000;
+
 function gemini(apiKey: string): AiProvider {
   const ai = new GoogleGenAI({ apiKey });
-  // "gemini-flash-latest" always points at Google's current Flash model, so the
-  // app doesn't break when a specific version is retired. Override if needed.
-  const model = process.env.GEMINI_MODEL || 'gemini-flash-latest';
+  // Flash-Lite: fast, and available on the free tier for new accounts.
+  // (Older models are closed to new users; the "-latest" alias can point at
+  // a preview that is slow or overloaded.) Override with GEMINI_MODEL.
+  const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
   return {
     name: 'gemini',
     async stream({ system, context, messages, signal, onText }) {
+      // Stop when the user closes the chat OR when Gemini takes too long.
+      const deadline = AbortSignal.timeout(AI_TIMEOUT_MS);
       try {
         const stream = await ai.models.generateContentStream({
           model,
@@ -44,7 +50,7 @@ function gemini(apiKey: string): AiProvider {
           config: {
             systemInstruction: `${system}\n\n${context}`,
             maxOutputTokens: 2048,
-            abortSignal: signal,
+            abortSignal: AbortSignal.any([signal, deadline]),
           },
         });
         let truncated = false;
@@ -54,8 +60,11 @@ function gemini(apiKey: string): AiProvider {
         }
         return { truncated };
       } catch (err) {
+        if (signal.aborted) throw err; // the user closed the chat
         const status = (err as { status?: number }).status;
-        if (status === 429) throw new QuotaError('Gemini free limit reached');
+        // 429 = free limit used up, 503 = model overloaded, deadline = too slow:
+        // all temporary, so the route answers from the FAQ instead.
+        if (status === 429 || status === 503 || deadline.aborted) throw new QuotaError(`Gemini unavailable (${status ?? 'timeout'})`);
         throw err;
       }
     },

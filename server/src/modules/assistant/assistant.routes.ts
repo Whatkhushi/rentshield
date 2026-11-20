@@ -21,6 +21,20 @@ assistantRouter.get('/status', (_req, res) => {
   res.json({ enabled: true, mode: provider?.name ?? 'faq' });
 });
 
+/**
+ * Amounts written the Indian way (1,50,000) plus words, so the model can't
+ * mis-group the digits (it once read 150000 as 1,500,000).
+ */
+const words = (n: number) =>
+  n >= 1_00_00_000
+    ? `${+(n / 1_00_00_000).toFixed(2)} crore`
+    : n >= 1_00_000
+      ? `${+(n / 1_00_000).toFixed(2)} lakh`
+      : n >= 1000
+        ? `${+(n / 1000).toFixed(2)} thousand`
+        : String(n);
+const inrText = (n: number) => `${n.toLocaleString('en-IN')} (${words(n)})`;
+
 // Each AI message costs money or free quota: cap it per user.
 const limiter = rateLimit({
   windowMs: 10 * 60 * 1000,
@@ -28,7 +42,7 @@ const limiter = rateLimit({
   keyGenerator: (req) => `assistant:${req.user?.sub}`,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
-  message: { error: { code: 'RATE_LIMITED', message: 'You’ve asked a lot of questions in a short time. Please wait a few minutes.' } },
+  message: { error: { code: 'RATE_LIMITED', message: 'Youâ€™ve asked a lot of questions in a short time. Please wait a few minutes.' } },
 });
 
 /**
@@ -50,7 +64,7 @@ async function tenancyContext(leaseId: number, me: number): Promise<{ text: stri
   const rooms = new Map(lease.property.rooms.map((r) => [r.id, r.name]));
   const lines = [
     `The user is the ${role.toLowerCase()} of a tenancy in ${lease.property.city} (${lease.property.propertyType.toLowerCase()}, ${lease.property.rooms.length} rooms).`,
-    `Monthly rent Rs ${lease.monthlyRent}, deposit Rs ${lease.securityDeposit}. Map pin set: ${lease.property.latitude !== null ? 'yes' : 'no'}.`,
+    `Monthly rent Rs ${inrText(lease.monthlyRent)}, deposit Rs ${inrText(lease.securityDeposit)}. Map pin set: ${lease.property.latitude !== null ? 'yes' : 'no'}.`,
     `Other party (${role === 'TENANT' ? 'landlord' : 'tenant'}) joined: ${otherPartyId ? 'yes' : 'no, an invite link is still needed'}.`,
     `Current stage: ${stage}.`,
   ];
@@ -66,10 +80,10 @@ async function tenancyContext(leaseId: number, me: number): Promise<{ text: stri
   if (lease.settlement) {
     const t = totals(lease.settlement, lease.settlement.deductions);
     lines.push(
-      `Settlement: ${lease.settlement.status}. Deposit Rs ${t.deposit}, accepted deductions Rs ${t.accepted}, still open Rs ${t.open} (${t.unresolvedCount} items).` +
-        (lease.settlement.finalRefund !== null ? ` Final refund Rs ${lease.settlement.finalRefund}.` : ''),
+      `Settlement: ${lease.settlement.status}. Deposit Rs ${inrText(t.deposit)}, accepted deductions Rs ${inrText(t.accepted)}, still open Rs ${inrText(t.open)} (${t.unresolvedCount} items).` +
+        (lease.settlement.finalRefund !== null ? ` Final refund Rs ${inrText(lease.settlement.finalRefund)}.` : ''),
     );
-    for (const d of lease.settlement.deductions.slice(0, 10)) lines.push(`- Deduction Rs ${d.amount} (${d.status.toLowerCase()}): ${d.reason}`);
+    for (const d of lease.settlement.deductions.slice(0, 10)) lines.push(`- Deduction Rs ${inrText(d.amount)} (${d.status.toLowerCase()}): ${d.reason}`);
   }
   return { text: lines.join('\n'), stage };
 }
@@ -131,8 +145,8 @@ assistantRouter.post('/chat', limiter, validate({ body: chatBody }), async (req,
         send({ text: t });
       },
     });
-    if (result.refused) send({ text: '\n\nSorry, I can’t help with that. I can answer questions about using RentShield and your tenancy.' });
-    else if (result.truncated) send({ text: '…' });
+    if (result.refused) send({ text: '\n\nSorry, I canâ€™t help with that. I can answer questions about using RentShield and your tenancy.' });
+    else if (result.truncated) send({ text: 'â€¦' });
     send({ done: true });
   } catch (err) {
     if (abort.signal.aborted || res.destroyed) return;
@@ -143,7 +157,7 @@ assistantRouter.post('/chat', limiter, validate({ body: chatBody }), async (req,
       send({ done: true });
     } else {
       logger.error({ err: (err as Error).message, provider: provider.name }, 'Assistant failed');
-      send({ error: 'The assistant couldn’t answer just now. Please try again.' });
+      send({ error: 'The assistant couldnâ€™t answer just now. Please try again.' });
     }
   } finally {
     res.end();
