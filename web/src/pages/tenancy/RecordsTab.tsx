@@ -1,13 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, Download, FileText, Link2, Loader2, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, Download, ExternalLink, FileText, Link2, Loader2, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { api } from '../../lib/api';
-import { downloadReport } from '../../lib/files';
+import { downloadReport, openReport } from '../../lib/files';
+import { useT } from '../../lib/i18n';
 import { dateTime, describeAction, shortHash } from '../../lib/format';
 import type { AuditEvent, LeaseDetail, Report } from '../../lib/types';
 import { Alert, Avatar, Badge, Button, Card, Spinner, cx } from '../../components/ui';
 
 export default function RecordsTab({ lease }: { lease: LeaseDetail }) {
   const qc = useQueryClient();
+  const t = useT();
   const reports = useQuery({
     queryKey: ['reports', lease.id],
     queryFn: () => api<{ reports: Report[] }>(`/leases/${lease.id}/reports`).then((r) => r.reports),
@@ -26,6 +28,7 @@ export default function RecordsTab({ lease }: { lease: LeaseDetail }) {
     },
   });
   const download = useMutation({ mutationFn: (id: number) => downloadReport(id) });
+  const view = useMutation({ mutationFn: (id: number) => openReport(id) });
 
   const pending = reports.data?.some((r) => r.status === 'PENDING');
 
@@ -35,8 +38,8 @@ export default function RecordsTab({ lease }: { lease: LeaseDetail }) {
       <div>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold">Audit log</h2>
-            <p className="text-sm text-ink-500">Every action, in order. Each entry’s hash includes the previous one, so history can’t be edited without breaking the chain.</p>
+            <h2 className="text-lg font-semibold">{t('Audit log')}</h2>
+            <p className="text-sm text-ink-500">{t('Every action, in order. Each entry’s hash includes the previous one, so history can’t be edited without breaking the chain.')}</p>
           </div>
         </div>
 
@@ -51,11 +54,11 @@ export default function RecordsTab({ lease }: { lease: LeaseDetail }) {
             >
               {audit.data.chain.valid ? <ShieldCheck className="size-6" /> : <ShieldAlert className="size-6" />}
               <div>
-                <p className="font-semibold">{audit.data.chain.valid ? 'Chain intact' : 'Chain broken'}</p>
+                <p className="font-semibold">{audit.data.chain.valid ? t('Chain intact') : t('Chain broken')}</p>
                 <p className="text-xs opacity-80">
                   {audit.data.chain.valid
-                    ? `All ${audit.data.chain.count} entries re-verified just now.`
-                    : `Entry #${audit.data.chain.brokenAtEventId} doesn’t match. History may have been altered.`}
+                    ? t('All {n} entries re-verified just now.', { n: audit.data.chain.count })
+                    : t('Entry #{n} doesn’t match. History may have been altered.', { n: audit.data.chain.brokenAtEventId ?? '' })}
                 </p>
               </div>
             </div>
@@ -67,7 +70,7 @@ export default function RecordsTab({ lease }: { lease: LeaseDetail }) {
                   <Avatar name={e.actor?.name ?? 'System'} size="sm" />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm text-ink-800">
-                      <span className="font-semibold">{e.actor?.name ?? 'System'}</span> {describeAction(e.action, e.data)}
+                      <span className="font-semibold">{e.actor?.name ?? t('System')}</span> {describeAction(e.action, e.data, t)}
                     </p>
                     <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-400">
                       {dateTime(e.createdAt)}
@@ -77,7 +80,7 @@ export default function RecordsTab({ lease }: { lease: LeaseDetail }) {
                       </span>
                       {typeof e.data?.sha256 === 'string' && (
                         <span className="font-mono text-[10px]" title={e.data.sha256}>
-                          file {shortHash(e.data.sha256)}
+                          {t('file')} {shortHash(e.data.sha256)}
                         </span>
                       )}
                     </p>
@@ -95,17 +98,16 @@ export default function RecordsTab({ lease }: { lease: LeaseDetail }) {
           <div className="grid size-11 place-items-center rounded-xl bg-ink-900 text-white">
             <FileText className="size-5" />
           </div>
-          <h3 className="mt-4 font-semibold text-ink-900">Handover & settlement report</h3>
+          <h3 className="mt-4 font-semibold text-ink-900">{t('Handover & settlement report')}</h3>
           <p className="mt-1 text-sm text-ink-500">
-            A PDF with both inspections and their photos, agreed and disputed items, every deduction and response, file fingerprints re-verified at generation,
-            and this audit log.
+            {t('A PDF with both inspections and their photos, agreed and disputed items, every deduction and response, file fingerprints re-verified at generation, and this audit log.')}
           </p>
           <Button className="mt-4 w-full" onClick={() => generate.mutate()} disabled={generate.isPending || pending}>
             {pending ? <Loader2 className="size-4 animate-spin" /> : <FileText className="size-4" />}
-            {pending ? 'Generating in background…' : 'Generate PDF report'}
+            {pending ? t('Generating in background…') : t('Generate PDF report')}
           </Button>
           {generate.error && <div className="mt-3"><Alert>{(generate.error as Error).message}</Alert></div>}
-          <p className="mt-3 text-xs text-ink-400">An organised record both parties acknowledged. Not a legal opinion.</p>
+          
         </Card>
 
         {reports.data && reports.data.length > 0 && (
@@ -114,18 +116,23 @@ export default function RecordsTab({ lease }: { lease: LeaseDetail }) {
               <div key={r.id} className="flex items-center gap-3 p-4">
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-2 text-sm font-semibold text-ink-900">
-                    Report #{r.id}
-                    {r.status === 'READY' && <Badge tone="ok"><CheckCircle2 className="size-3" /> Ready</Badge>}
-                    {r.status === 'PENDING' && <Badge tone="ink">Generating</Badge>}
-                    {r.status === 'FAILED' && <Badge tone="bad">Failed</Badge>}
+                    {t('Report #{n}', { n: r.id })}
+                    {r.status === 'READY' && <Badge tone="ok"><CheckCircle2 className="size-3" /> {t('Ready')}</Badge>}
+                    {r.status === 'PENDING' && <Badge tone="ink">{t('Generating')}</Badge>}
+                    {r.status === 'FAILED' && <Badge tone="bad">{t('Failed')}</Badge>}
                   </p>
                   <p className="text-xs text-ink-400">{dateTime(r.createdAt)}</p>
                   {r.sha256 && <p className="truncate font-mono text-[10px] text-ink-400" title={r.sha256}>PDF sha256 {shortHash(r.sha256)}</p>}
                 </div>
                 {r.status === 'READY' && (
-                  <Button size="sm" variant="secondary" onClick={() => download.mutate(r.id)} disabled={download.isPending}>
-                    <Download className="size-3.5" />
-                  </Button>
+                  <div className="flex gap-1.5">
+                    <Button size="sm" onClick={() => view.mutate(r.id)} disabled={view.isPending} title={t('Open the PDF in a new tab')}>
+                      <ExternalLink className="size-3.5" /> {t('Open')}
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => download.mutate(r.id)} disabled={download.isPending} title={t('Save to your Downloads folder')} aria-label={t('Download')}>
+                      <Download className="size-3.5" />
+                    </Button>
+                  </div>
                 )}
               </div>
             ))}

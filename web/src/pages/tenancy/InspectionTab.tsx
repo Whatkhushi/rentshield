@@ -27,6 +27,7 @@ import {
 import { api } from '../../lib/api';
 import { currentPosition, isTouchDevice } from '../../lib/device';
 import { CONDITIONS, conditionLabel, dateTime } from '../../lib/format';
+import { useT } from '../../lib/i18n';
 import type { Condition, Inspection, InspectionType, Item, LeaseDetail, Room } from '../../lib/types';
 import { CameraCapture } from '../../components/CameraCapture';
 import { AuthedImage, PhotoTile } from '../../components/Photo';
@@ -72,6 +73,7 @@ function Ring({ value, total, active }: { value: number; total: number; active?:
 
 export default function InspectionTab({ lease, type }: { lease: LeaseDetail; type: InspectionType }) {
   const qc = useQueryClient();
+  const t = useT();
   const summary = lease.inspections.find((i) => i.type === type);
   const moveIn = lease.inspections.find((i) => i.type === 'MOVE_IN');
   const start = useMutation({
@@ -84,21 +86,21 @@ export default function InspectionTab({ lease, type }: { lease: LeaseDetail; typ
     return (
       <EmptyState
         icon={<ClipboardList className="size-6" />}
-        title={type === 'MOVE_IN' ? 'Start the move-in inspection' : 'Start the move-out inspection'}
+        title={type === 'MOVE_IN' ? t('Start the move-in inspection') : t('Start the move-out inspection')}
         action={
           <div className="flex flex-col items-center gap-3">
             {start.error && <Alert>{(start.error as Error).message}</Alert>}
             <Button size="lg" disabled={blocked || start.isPending} onClick={() => start.mutate()}>
-              {start.isPending ? 'Preparing checklist…' : 'Start inspection'}
+              {start.isPending ? t('Preparing checklist…') : t('Start inspection')}
             </Button>
           </div>
         }
       >
         {blocked
-          ? 'Available once both of you have agreed the move-in inspection. Move-out is compared against it.'
+          ? t('Available once both of you have agreed the move-in inspection. Move-out is compared against it.')
           : type === 'MOVE_IN'
-            ? `A checklist is created for each of the ${lease.property.rooms?.length} rooms. You can add or remove items. You record each item’s condition; the ${lease.myRole === 'TENANT' ? 'landlord' : 'tenant'} reviews it. Best done on the day you get the keys.`
-            : 'Every agreed move-in item is copied over. Re-photograph each one from the same spot, so the two can be compared.'}
+            ? t('A checklist is created for each of the {n} rooms. You can add or remove items. You record each item’s condition; the other person reviews it. Best done on the day you get the keys.', { n: lease.property.rooms?.length ?? 0 })
+            : t('Every agreed move-in item is copied over. Re-photograph each one from the same spot, so the two can be compared.')}
       </EmptyState>
     );
   }
@@ -111,6 +113,7 @@ type Mode = 'edit' | 'review' | 'wait' | 'locked';
 
 function InspectionView({ id, leaseId }: { id: number; leaseId: number }) {
   const qc = useQueryClient();
+  const t = useT();
   const { data, isLoading, error } = useQuery({
     queryKey: ['inspection', id],
     queryFn: () => api<{ inspection: Inspection }>(`/inspections/${id}`).then((r) => r.inspection),
@@ -169,7 +172,7 @@ function InspectionView({ id, leaseId }: { id: number; leaseId: number }) {
         {/* ---- Room navigation ---- */}
         <aside className="lg:sticky lg:top-32 lg:self-start">
           <div className="flex gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible">
-            <RoomButton active={roomId === 'all'} onClick={() => setRoomId('all')} label="All rooms" Icon={ClipboardList} done={mode === 'edit' ? counts.checked : counts.resolved} total={counts.total} />
+            <RoomButton active={roomId === 'all'} onClick={() => setRoomId('all')} label={t('All rooms')} Icon={ClipboardList} done={mode === 'edit' ? counts.checked : counts.resolved} total={counts.total} />
             {data.rooms.map((r) => {
               const its = byRoom.get(r.id) ?? [];
               return (
@@ -177,7 +180,7 @@ function InspectionView({ id, leaseId }: { id: number; leaseId: number }) {
                   key={r.id}
                   active={roomId === r.id}
                   onClick={() => setRoomId(r.id)}
-                  label={r.name}
+                  label={t(r.name)}
                   Icon={roomIcon(r.name)}
                   done={roomProgress(its)}
                   total={its.length}
@@ -257,7 +260,9 @@ function StatusBanner({
   onApproveAll: () => void;
   approving: boolean;
 }) {
-  const title = data.type === 'MOVE_IN' ? 'Move-in inspection' : 'Move-out inspection';
+  const t = useT();
+  const title = data.type === 'MOVE_IN' ? t('Move-in inspection') : t('Move-out inspection');
+  const other = t(otherName);
   const pct = (mode === 'edit' ? counts.checked : counts.resolved) / Math.max(1, counts.total);
   const remaining = counts.total - counts.checked;
 
@@ -265,38 +270,37 @@ function StatusBanner({
   let sub: React.ReactNode = '';
   let action: React.ReactNode = null;
   if (mode === 'locked') {
-    headline = 'Agreed by both of you and locked';
-    sub = `Finalized ${dateTime(data.finalizedAt)}. Nobody can change this record any more.${counts.noted ? ` ${counts.noted} item(s) have both views recorded.` : ''}`;
+    headline = t('Agreed by both of you and locked');
+    sub = t('Finalized {date}. Nobody can change this record any more.', { date: dateTime(data.finalizedAt) }) + (counts.noted ? ' ' + t('{n} item(s) have both views recorded.', { n: counts.noted }) : '');
   } else if (mode === 'edit') {
-    headline = remaining ? `${remaining} item${remaining > 1 ? 's' : ''} left to check` : `All items checked. Send it to the ${otherName}`;
+    headline = remaining ? t('{n} item(s) left to check', { n: remaining }) : t('All items checked. Send it to the {other}', { other });
     sub = (
       <>
-        Give every item a condition (use <strong>N/A</strong> or remove items that don’t exist). Photos are optional, but take them for anything not in
-        good shape.
-        {!data.otherPartyJoined && <span className="text-warn-700"> Invite the {otherName} before submitting.</span>}
+        {t('Give every item a condition (use N/A or remove items that don’t exist). Photos are optional, but take them for anything not in good shape.')}
+        {!data.otherPartyJoined && <span className="text-warn-700"> {t('Invite the {other} before submitting.', { other })}</span>}
       </>
     );
     action = (
       <Button variant="success" size="lg" disabled={remaining > 0 || !data.otherPartyJoined || submitting} onClick={onSubmit}>
-        <Send className="size-4" /> {submitting ? 'Submitting…' : 'Submit for review'}
+        <Send className="size-4" /> {submitting ? t('Submitting…') : t('Submit for review')}
       </Button>
     );
   } else if (mode === 'review') {
-    headline = `Review what the ${otherName} recorded`;
-    sub = `${counts.pending} waiting for you. Approve what’s right. If something’s wrong, send it back, or record your disagreement if you won’t agree.`;
+    headline = t('Review what the {other} recorded', { other });
+    sub = t('{n} waiting for you. Approve what’s right. If something’s wrong, send it back, or record your disagreement if you won’t agree.', { n: counts.pending });
     action = counts.pending > 0 && (
       <Button variant="success" size="lg" disabled={approving} onClick={onApproveAll}>
-        <CheckCheck className="size-4" /> {approving ? 'Approving…' : `Approve all ${counts.pending}`}
+        <CheckCheck className="size-4" /> {approving ? t('Approving…') : t('Approve all {n}', { n: counts.pending })}
       </Button>
     );
   } else {
     headline =
       data.status === 'DRAFT'
-        ? `The ${otherName} is still recording the items`
+        ? t('The {other} is still recording the items', { other })
         : counts.disputed
-          ? `${counts.disputed} item${counts.disputed > 1 ? 's' : ''} sent back to you. Revise below`
-          : `Waiting for the ${otherName} to review`;
-    sub = data.status === 'DRAFT' ? 'You’ll be able to review once they submit.' : `${counts.resolved} of ${counts.total} settled so far.`;
+          ? t('{n} item(s) sent back to you. Revise below', { n: counts.disputed })
+          : t('Waiting for the {other} to review', { other });
+    sub = data.status === 'DRAFT' ? t('You’ll be able to review once they submit.') : t('{a} of {b} settled so far.', { a: counts.resolved, b: counts.total });
   }
 
   return (
@@ -316,17 +320,17 @@ function StatusBanner({
       </div>
       <div className="flex flex-wrap gap-x-6 gap-y-1 border-t border-ink-50 px-5 py-2.5 text-xs text-ink-500">
         <span>
-          <strong className="text-ink-800">{counts.checked}</strong>/{counts.total} checked
+          <strong className="text-ink-800">{counts.checked}</strong>/{counts.total} {t('checked')}
         </span>
         {data.status !== 'DRAFT' && (
           <span>
-            <strong className="text-ink-800">{counts.resolved}</strong>/{counts.total} agreed
+            <strong className="text-ink-800">{counts.resolved}</strong>/{counts.total} {t('agreed')}
           </span>
         )}
         <span>
-          <strong className="text-ink-800">{counts.photos}</strong> photos · <strong className="text-ok-700">{counts.atProperty}</strong> verified at the property
+          <strong className="text-ink-800">{counts.photos}</strong> {t('photos')} · <strong className="text-ok-700">{counts.atProperty}</strong> {t('verified at the property')}
         </span>
-        {counts.noted > 0 && <span className="text-ink-700">{counts.noted} disagreement(s) recorded</span>}
+        {counts.noted > 0 && <span className="text-ink-700">{t('{n} disagreement(s) recorded', { n: counts.noted })}</span>}
       </div>
       <div className="h-1 bg-ink-50">
         <div className={cx('h-full transition-all duration-500', mode === 'locked' ? 'bg-ok-500' : 'bg-ink-800')} style={{ width: `${pct * 100}%` }} />
@@ -338,6 +342,7 @@ function StatusBanner({
 // ---------------------------------------------------------------------------
 
 function MeterReadings({ data, onSaved }: { data: Inspection; onSaved: () => void }) {
+  const t = useT();
   const [v, setV] = useState({ electricityReading: data.electricityReading ?? '', waterReading: data.waterReading ?? '', gasReading: data.gasReading ?? '' });
   const editable = data.isAuthor && data.status === 'DRAFT';
   const save = useMutation({
@@ -349,7 +354,7 @@ function MeterReadings({ data, onSaved }: { data: Inspection; onSaved: () => voi
   return (
     <Card className="mt-4 hidden p-4 lg:block">
       <p className="flex items-center gap-1.5 text-sm font-semibold text-ink-900">
-        <Gauge className="size-4" /> Meter readings
+        <Gauge className="size-4" /> {t('Meter readings')}
       </p>
       <div className="mt-3 space-y-2">
         {(
@@ -360,11 +365,11 @@ function MeterReadings({ data, onSaved }: { data: Inspection; onSaved: () => voi
           ] as const
         ).map(([k, label]) => (
           <label key={k} className="block">
-            <span className="text-xs text-ink-500">{label}</span>
+            <span className="text-xs text-ink-500">{t(label)}</span>
             <input
               disabled={!editable}
               value={v[k]}
-              placeholder={editable ? 'Reading' : '—'}
+              placeholder={editable ? t('Reading') : '—'}
               onChange={(e) => setV({ ...v, [k]: e.target.value })}
               className="mt-0.5 block w-full rounded-lg border-0 px-2.5 py-1.5 font-mono text-sm ring-1 ring-ink-200 focus:ring-2 focus:ring-ink-700 disabled:bg-ink-50"
             />
@@ -372,7 +377,7 @@ function MeterReadings({ data, onSaved }: { data: Inspection; onSaved: () => voi
         ))}
         {editable && dirty && (
           <Button size="sm" className="w-full" onClick={() => save.mutate()} disabled={save.isPending}>
-            Save readings
+            {t('Save readings')}
           </Button>
         )}
       </div>
@@ -383,6 +388,7 @@ function MeterReadings({ data, onSaved }: { data: Inspection; onSaved: () => voi
 // ---------------------------------------------------------------------------
 
 function RoomSection({ room, items, inspection, mode, onChanged }: { room: Room; items: Item[]; inspection: Inspection; mode: Mode; onChanged: () => void }) {
+  const t = useT();
   const Icon = roomIcon(room.name);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
@@ -405,19 +411,19 @@ function RoomSection({ room, items, inspection, mode, onChanged }: { room: Room;
         <div className="grid size-9 place-items-center rounded-xl bg-white text-ink-700 shadow-sm ring-1 ring-ink-100">
           <Icon className="size-4.5" />
         </div>
-        <h3 className="text-base font-bold tracking-tight text-ink-900">{room.name}</h3>
+        <h3 className="text-base font-bold tracking-tight text-ink-900">{t(room.name)}</h3>
         <span className="text-xs text-ink-400">
-          {items.filter((i) => i.condition).length}/{items.length} checked
+          {items.filter((i) => i.condition).length}/{items.length} {t('checked')}
         </span>
         <span className="h-px flex-1 bg-ink-100" />
         {mode === 'edit' && unchecked > 0 && (
-          <Button size="sm" variant="secondary" disabled={markGood.isPending} onClick={() => markGood.mutate()} title="Sets Good on every item you haven’t checked yet">
-            <Sparkles className="size-3.5" /> Mark remaining {unchecked} as Good
+          <Button size="sm" variant="secondary" disabled={markGood.isPending} onClick={() => markGood.mutate()} title={t('Sets Good on every item you haven’t checked yet')}>
+            <Sparkles className="size-3.5" /> {t('Mark remaining {n} as Good', { n: unchecked })}
           </Button>
         )}
         {canShape && (
           <Button size="sm" variant="ghost" onClick={() => setAdding(!adding)}>
-            <Plus className="size-3.5" /> Add item
+            <Plus className="size-3.5" /> {t('Add item')}
           </Button>
         )}
       </div>
@@ -434,11 +440,11 @@ function RoomSection({ room, items, inspection, mode, onChanged }: { room: Room;
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder={`Something else in the ${room.name.toLowerCase()}, e.g. Sofa, Study table, Geyser`}
+            placeholder={t('Something else in this room, e.g. Sofa, Study table, Geyser')}
             className="flex-1 rounded-xl border-0 px-3.5 py-2 text-sm ring-1 ring-ink-200 focus:ring-2 focus:ring-ink-700"
           />
           <Button size="sm" disabled={name.trim().length < 2 || add.isPending}>
-            Add
+            {t('Add')}
           </Button>
         </form>
       )}
@@ -476,6 +482,7 @@ function ItemCard({ item, inspection, mode, canRemove, onChanged }: { item: Item
   const isMoveOut = inspection.type === 'MOVE_OUT';
   const baselinePhoto = item.baselineItem?.evidence.find((e) => e.mimeType.startsWith('image/'));
   const touch = isTouchDevice();
+  const t = useT();
 
   const done = () => {
     setErr('');
@@ -521,16 +528,16 @@ function ItemCard({ item, inspection, mode, canRemove, onChanged }: { item: Item
   const statusBadge =
     inspection.status === 'DRAFT' ? null : item.reviewStatus === 'APPROVED' ? (
       <Badge tone="ok">
-        <Check className="size-3" /> Agreed
+        <Check className="size-3" /> {t('Agreed')}
       </Badge>
     ) : item.reviewStatus === 'NOTED' ? (
       <Badge tone="ink">
-        <Scale className="size-3" /> Both views recorded
+        <Scale className="size-3" /> {t('Both views recorded')}
       </Badge>
     ) : item.reviewStatus === 'DISPUTED' ? (
-      <Badge tone="warn">Sent back</Badge>
+      <Badge tone="warn">{t('Sent back')}</Badge>
     ) : (
-      <Badge tone="muted">Awaiting review</Badge>
+      <Badge tone="muted">{t('Awaiting review')}</Badge>
     );
 
   return (
@@ -544,22 +551,22 @@ function ItemCard({ item, inspection, mode, canRemove, onChanged }: { item: Item
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h4 className="font-semibold text-ink-900">{item.name}</h4>
+          <h4 className="font-semibold text-ink-900">{t(item.name)}</h4>
           {isMoveOut && item.baselineItem && (
             <p className="mt-0.5 text-xs text-ink-500">
-              At move-in: <Badge tone={toneOf(item.baselineItem.condition)}>{conditionLabel(item.baselineItem.condition)}</Badge>
+              {t('At move-in:')} <Badge tone={toneOf(item.baselineItem.condition)}>{t(conditionLabel(item.baselineItem.condition))}</Badge>
               {item.baselineItem.notes && <span className="ml-1.5 italic">“{item.baselineItem.notes}”</span>}
             </p>
           )}
         </div>
         <div className="flex items-center gap-1.5">
-          {mode !== 'edit' && item.condition && <Badge tone={toneOf(item.condition)}>{conditionLabel(item.condition)}</Badge>}
+          {mode !== 'edit' && item.condition && <Badge tone={toneOf(item.condition)}>{t(conditionLabel(item.condition))}</Badge>}
           {statusBadge}
           {canRemove && (
             <button
-              onClick={() => confirm(`Remove “${item.name}” from the checklist?`) && removeItem.mutate()}
+              onClick={() => confirm(t('Remove “{item}” from the checklist?', { item: t(item.name) })) && removeItem.mutate()}
               className="rounded-lg p-1.5 text-ink-300 hover:bg-red-50 hover:text-red-600"
-              title="Remove this item (it doesn’t exist in this flat)"
+              title={t('Remove this item (it doesn’t exist in this flat)')}
               aria-label={`Remove ${item.name}`}
             >
               <Trash2 className="size-4" />
@@ -574,10 +581,10 @@ function ItemCard({ item, inspection, mode, canRemove, onChanged }: { item: Item
           {item.reviewStatus === 'NOTED' ? <Scale className="mt-0.5 size-4 shrink-0" /> : <MessageSquareWarning className="mt-0.5 size-4 shrink-0" />}
           <div>
             <p className="font-semibold">
-              {item.reviewStatus === 'NOTED' ? 'Reviewer’s view (recorded alongside yours)' : inspection.isAuthor ? 'Sent back by the other party' : 'You sent this back'}
+              {item.reviewStatus === 'NOTED' ? t('Reviewer’s view (recorded alongside yours)') : inspection.isAuthor ? t('Sent back by the other party') : t('You sent this back')}
             </p>
             <p className="text-ink-700">{item.reviewComment}</p>
-            {isRevising && <p className="mt-1 text-xs">Update the condition, notes or photos. It goes back for review automatically.</p>}
+            {isRevising && <p className="mt-1 text-xs">{t('Update the condition, notes or photos. It goes back for review automatically.')}</p>}
           </div>
         </div>
       )}
@@ -606,7 +613,7 @@ function ItemCard({ item, inspection, mode, canRemove, onChanged }: { item: Item
                     : 'text-ink-500 hover:bg-white hover:text-ink-900',
                 )}
               >
-                {c.label}
+                {t(c.label)}
               </button>
             );
           })}
@@ -618,7 +625,7 @@ function ItemCard({ item, inspection, mode, canRemove, onChanged }: { item: Item
         <div className="mt-3">
           <TextArea
             rows={2}
-            placeholder={item.condition && item.condition !== 'GOOD' && item.condition !== 'NOT_APPLICABLE' ? 'Describe it: what, where, how big…' : 'Notes (optional)'}
+            placeholder={item.condition && item.condition !== 'GOOD' && item.condition !== 'NOT_APPLICABLE' ? t('Describe it: what, where, how big…') : t('Notes (optional)')}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             onBlur={() => notes !== (item.notes ?? '') && update.mutate({ notes: notes.trim() || null })}
@@ -634,7 +641,7 @@ function ItemCard({ item, inspection, mode, canRemove, onChanged }: { item: Item
           {isMoveOut && baselinePhoto && (
             <div className="relative">
               <AuthedImage id={baselinePhoto.id} className="aspect-[4/3] w-full rounded-xl opacity-75 ring-1 ring-ink-100" />
-              <span className="absolute inset-x-1.5 bottom-1.5 rounded-md bg-white/90 px-1.5 py-0.5 text-center text-[9px] font-bold tracking-wide text-ink-700">MOVE-IN</span>
+              <span className="absolute inset-x-1.5 bottom-1.5 rounded-md bg-white/90 px-1.5 py-0.5 text-center text-[9px] font-bold tracking-wide text-ink-700">{t('MOVE-IN')}</span>
             </div>
           )}
           {item.evidence.map((ev) => (
@@ -648,7 +655,7 @@ function ItemCard({ item, inspection, mode, canRemove, onChanged }: { item: Item
                   className="flex aspect-[4/3] flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-ink-200 text-ink-500 transition-colors hover:border-ink-400 hover:bg-white hover:text-ink-900"
                 >
                   <Camera className="size-5" />
-                  <span className="text-[11px] font-semibold">{isMoveOut && baselinePhoto ? 'Retake' : 'Camera'}</span>
+                  <span className="text-[11px] font-semibold">{isMoveOut && baselinePhoto ? t('Retake') : t('Camera')}</span>
                 </button>
               )}
               <button
@@ -657,7 +664,7 @@ function ItemCard({ item, inspection, mode, canRemove, onChanged }: { item: Item
                 className="flex aspect-[4/3] flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-ink-200 text-ink-500 transition-colors hover:border-ink-400 hover:bg-white hover:text-ink-900"
               >
                 {upload.isPending ? <span className="size-5 animate-spin rounded-full border-2 border-ink-200 border-t-ink-700" /> : <ImagePlus className="size-5" />}
-                <span className="text-[11px] font-semibold">{upload.isPending ? 'Checking…' : 'Add photos'}</span>
+                <span className="text-[11px] font-semibold">{upload.isPending ? t('Checking…') : t('Add photos')}</span>
               </button>
               <input
                 ref={fileInput}
@@ -689,35 +696,35 @@ function ItemCard({ item, inspection, mode, canRemove, onChanged }: { item: Item
             <div className="animate-rise space-y-2">
               <p className="text-xs text-ink-500">
                 {reviewing === 'DISPUTED'
-                  ? 'The item goes back to be corrected, then returns to you.'
-                  : 'Your view is recorded next to theirs, and this item stops blocking the record from locking.'}
+                  ? t('The item goes back to be corrected, then returns to you.')
+                  : t('Your view is recorded next to theirs, and this item stops blocking the record from locking.')}
               </p>
               <TextArea
                 rows={2}
                 autoFocus
-                placeholder={reviewing === 'DISPUTED' ? 'What’s wrong? e.g. “The crack is bigger than described”' : 'Your view, e.g. “The tap was replaced last month and was working”'}
+                placeholder={reviewing === 'DISPUTED' ? t('What’s wrong? e.g. “The crack is bigger than described”') : t('Your view, e.g. “The tap was replaced last month and was working”')}
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
               />
               <div className="flex justify-end gap-2">
                 <Button variant="ghost" size="sm" onClick={() => setReviewing(null)}>
-                  Cancel
+                  {t('Cancel')}
                 </Button>
                 <Button size="sm" disabled={comment.trim().length < 3 || review.isPending} onClick={() => review.mutate({ decision: reviewing, comment })}>
-                  {reviewing === 'DISPUTED' ? 'Send back' : 'Record my view'}
+                  {reviewing === 'DISPUTED' ? t('Send back') : t('Record my view')}
                 </Button>
               </div>
             </div>
           ) : (
             <div className="flex flex-wrap justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setReviewing('NOTED')} title="Keep both views and move on">
-                <Scale className="size-3.5" /> Record disagreement
+              <Button variant="ghost" size="sm" onClick={() => setReviewing('NOTED')} title={t('Keep both views and move on')}>
+                <Scale className="size-3.5" /> {t('Record disagreement')}
               </Button>
               <Button variant="secondary" size="sm" onClick={() => setReviewing('DISPUTED')}>
-                <Undo2 className="size-3.5" /> Send back
+                <Undo2 className="size-3.5" /> {t('Send back')}
               </Button>
               <Button variant="success" size="sm" disabled={review.isPending} onClick={() => review.mutate({ decision: 'APPROVED' })}>
-                <ThumbsUp className="size-3.5" /> Approve
+                <ThumbsUp className="size-3.5" /> {t('Approve')}
               </Button>
             </div>
           )}

@@ -11,7 +11,7 @@ const variants: Record<Variant, string> = {
   ghost: 'text-ink-600 hover:bg-ink-100 hover:text-ink-900',
   danger: 'bg-white text-red-700 ring-1 ring-red-200 hover:bg-red-50',
   success: 'bg-ok-600 text-white hover:bg-ok-700 shadow-sm disabled:bg-ok-600/40',
-  light: 'bg-white/10 text-white ring-1 ring-white/20 hover:bg-white/20',
+  light: 'bg-snow/10 text-snow ring-1 ring-snow/20 hover:bg-snow/20',
 };
 
 export function Button({
@@ -128,7 +128,7 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
   if (!open) return null;
   // Portal to <body> so the dialog is never trapped under a parent's stacking context.
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink-950/60 p-0 backdrop-blur-sm sm:items-center sm:p-6" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-night/60 p-0 backdrop-blur-sm sm:items-center sm:p-6" onClick={onClose}>
       <div
         className={cx('animate-rise max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl', wide ? 'max-w-4xl' : 'max-w-lg')}
         onClick={(e) => e.stopPropagation()}

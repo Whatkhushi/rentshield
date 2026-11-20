@@ -4,27 +4,30 @@ import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, Check, ClipboardCheck, Copy, Link2, MapPin, Scale, Send } from 'lucide-react';
 import { api } from '../../lib/api';
 import { cityCentre } from '../../lib/device';
-import { dateShort, inr } from '../../lib/format';
+import { dateShort, inr, PROPERTY_TYPES } from '../../lib/format';
 import type { Inspection, InspectionSummary, LeaseDetail } from '../../lib/types';
 import { nextStep } from '../DashboardPage';
+import { useT } from '../../lib/i18n';
 import { EvidenceMap, MapPicker } from '../../components/Maps';
 import { Badge, Button, Card, Modal, cx } from '../../components/ui';
 
 export function InspectionStatusBadge({ i }: { i?: InspectionSummary }) {
-  if (!i) return <Badge tone="muted">Not started</Badge>;
+  const t = useT();
+  if (!i) return <Badge tone="muted">{t('Not started')}</Badge>;
   if (i.status === 'FINALIZED')
     return (
       <Badge tone="ok">
-        <Check className="size-3" /> Agreed & locked
+        <Check className="size-3" /> {t('Agreed & locked')}
       </Badge>
     );
-  if (i.status === 'SUBMITTED') return <Badge tone={i.disputed ? 'warn' : 'ink'}>{i.disputed ? `${i.disputed} disputed` : 'In review'}</Badge>;
-  return <Badge tone="ink">Draft</Badge>;
+  if (i.status === 'SUBMITTED') return <Badge tone={i.disputed ? 'warn' : 'ink'}>{i.disputed ? t('{n} sent back', { n: i.disputed }) : t('In review')}</Badge>;
+  return <Badge tone="ink">{t('Draft')}</Badge>;
 }
 
 function InvitePanel({ lease }: { lease: LeaseDetail }) {
   const [copied, setCopied] = useState(false);
-  const other = lease.myRole === 'TENANT' ? 'landlord' : 'tenant';
+  const t = useT();
+  const isTenant = lease.myRole === 'TENANT';
   const invite = useMutation({
     mutationFn: () => api<{ url: string; expiresAt: string }>(`/leases/${lease.id}/invitations`, { method: 'POST' }),
   });
@@ -43,24 +46,24 @@ function InvitePanel({ lease }: { lease: LeaseDetail }) {
             <Send className="size-5" />
           </div>
           <div className="flex-1">
-            <h3 className="font-semibold text-ink-900">Invite the {other}</h3>
+            <h3 className="font-semibold text-ink-900">{isTenant ? t('Invite the landlord') : t('Invite the tenant')}</h3>
             <p className="mt-1 text-sm text-ink-600">
-              A record only one side made isn’t worth much. Send the {other} a link: they review your inspection in their browser, no app to install.
+              {t('A record only one side made isn’t worth much. Send them a link: they review your inspection in their browser, no app to install.')}
             </p>
             {!invite.data ? (
               <Button className="mt-4" onClick={() => invite.mutate()} disabled={invite.isPending}>
-                <Link2 className="size-4" /> {invite.isPending ? 'Creating link…' : 'Create invite link'}
+                <Link2 className="size-4" /> {invite.isPending ? t('Creating link…') : t('Create invite link')}
               </Button>
             ) : (
               <div className="animate-rise mt-4">
                 <div className="flex items-center gap-2 rounded-xl bg-white p-1.5 pl-3 ring-1 ring-ink-200">
                   <span className="flex-1 truncate font-mono text-xs text-ink-600">{invite.data.url}</span>
                   <Button size="sm" onClick={() => copy(invite.data!.url)}>
-                    {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />} {copied ? 'Copied' : 'Copy'}
+                    {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />} {copied ? t('Copied') : t('Copy')}
                   </Button>
                 </div>
                 <p className="mt-2 text-xs text-ink-500">
-                  Single use · expires {dateShort(invite.data.expiresAt)} · share it on WhatsApp or email
+                  {t('Single use · expires {date} · share it on WhatsApp or email', { date: dateShort(invite.data.expiresAt) })}
                 </p>
               </div>
             )}
@@ -75,6 +78,7 @@ function InvitePanel({ lease }: { lease: LeaseDetail }) {
 /** Property pin + where each inspection photo was taken. */
 function LocationCard({ lease }: { lease: LeaseDetail }) {
   const qc = useQueryClient();
+  const t = useT();
   const [editing, setEditing] = useState(false);
   const [pin, setPin] = useState<{ lat: number; lng: number } | null>(null);
   const p = lease.property;
@@ -117,31 +121,31 @@ function LocationCard({ lease }: { lease: LeaseDetail }) {
         </div>
       )}
       <div className="p-5">
-        <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">Location</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">{t('Location')}</p>
         {pinned ? (
           <>
             <p className="mt-1 text-sm text-ink-700">
               {photos.length === 0 ? (
-                'No located photos yet. Photos taken on a phone carry their GPS position.'
+                t('No located photos yet. Photos taken on a phone carry their GPS position.')
               ) : (
                 <>
-                  <strong className="text-ok-700">{atProperty}</strong> of {photos.length} located photos were taken at the property.
+                  {t('{a} of {b} located photos were taken at the property.', { a: atProperty, b: photos.length })}
                 </>
               )}
             </p>
             {photos.length > 0 && (
               <p className="mt-2 flex gap-3 text-xs text-ink-500">
                 <span className="flex items-center gap-1">
-                  <span className="size-2.5 rounded-full bg-ok-600" /> within 150 m
+                  <span className="size-2.5 rounded-full bg-ok-600" /> {t('within 150 m')}
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="size-2.5 rounded-full bg-amber-600" /> further away
+                  <span className="size-2.5 rounded-full bg-amber-600" /> {t('further away')}
                 </span>
               </p>
             )}
           </>
         ) : (
-          <p className="mt-1 text-sm text-ink-600">Pin the building so RentShield can check that photos were taken here.</p>
+          <p className="mt-1 text-sm text-ink-600">{t('Pin the building so RentShield can check that photos were taken here.')}</p>
         )}
         {!locked && (
           <Button
@@ -153,18 +157,18 @@ function LocationCard({ lease }: { lease: LeaseDetail }) {
               setEditing(true);
             }}
           >
-            <MapPin className="size-3.5" /> {pinned ? 'Move pin' : 'Pin the property'}
+            <MapPin className="size-3.5" /> {pinned ? t('Move pin') : t('Pin the property')}
           </Button>
         )}
-        {locked && pinned && <p className="mt-2 text-xs text-ink-400">Locked: an inspection was agreed with this location.</p>}
+        {locked && pinned && <p className="mt-2 text-xs text-ink-400">{t('Locked: an inspection was agreed with this location.')}</p>}
       </div>
 
-      <Modal open={editing} onClose={() => setEditing(false)} title="Where is the property?" wide>
+      <Modal open={editing} onClose={() => setEditing(false)} title={t('Where is the property?')} wide>
         <MapPicker value={pin} onChange={setPin} fallbackCenter={cityCentre(p.city)} className="h-96" />
         <div className="mt-4 flex items-center justify-between gap-3">
-          <p className="text-xs text-ink-500">Click the building, or drag the pin. Locks once an inspection is agreed.</p>
+          <p className="text-xs text-ink-500">{t('Click the building, or drag the pin. Locks once an inspection is agreed.')}</p>
           <Button disabled={!pin || save.isPending} onClick={() => save.mutate()}>
-            Save location
+            {t('Save location')}
           </Button>
         </div>
         {save.error && <p className="mt-2 text-sm text-red-600">{(save.error as Error).message}</p>}
@@ -177,6 +181,7 @@ export default function OverviewTab({ lease }: { lease: LeaseDetail }) {
   const moveIn = lease.inspections.find((i) => i.type === 'MOVE_IN');
   const moveOut = lease.inspections.find((i) => i.type === 'MOVE_OUT');
   const otherJoined = lease.myRole === 'TENANT' ? lease.landlord : lease.tenant;
+  const t = useT();
 
   const action: Record<string, { to: string; label: string }> = {
     MOVE_IN: { to: 'move-in', label: moveIn ? 'Open move-in inspection' : 'Start move-in inspection' },
@@ -193,31 +198,31 @@ export default function OverviewTab({ lease }: { lease: LeaseDetail }) {
         {!otherJoined && <InvitePanel lease={lease} />}
 
         <Card className="p-6">
-          <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">Next step</p>
-          <p className="mt-1 text-xl font-semibold tracking-tight text-ink-900">{nextStep(lease.stage, lease.myRole)}</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">{t('Next step')}</p>
+          <p className="mt-1 text-xl font-semibold tracking-tight text-ink-900">{t(nextStep(lease.stage, lease.myRole))}</p>
           {next && (
             <Link to={next.to}>
               <Button className="mt-4">
-                {next.label} <ArrowRight className="size-4" />
+                {t(next.label)} <ArrowRight className="size-4" />
               </Button>
             </Link>
           )}
           {!otherJoined && lease.stage === 'WAITING_FOR_PARTY' && (
             <Link to="move-in" className="mt-3 block text-sm text-ink-500 underline hover:text-ink-900">
-              You can start documenting the move-in inspection while you wait
+              {t('You can start documenting the move-in inspection while you wait')}
             </Link>
           )}
         </Card>
 
         <div className="grid gap-4 sm:grid-cols-3">
           {[
-            { icon: ClipboardCheck, label: 'Move-in', to: 'move-in', i: moveIn },
-            { icon: ClipboardCheck, label: 'Move-out', to: 'move-out', i: moveOut },
+            { icon: ClipboardCheck, label: 'Move-in inspection', to: 'move-in', i: moveIn },
+            { icon: ClipboardCheck, label: 'Move-out inspection', to: 'move-out', i: moveOut },
           ].map((x) => (
             <Link key={x.label} to={x.to} className="group">
               <Card className="h-full p-5 transition-shadow group-hover:shadow-md">
                 <x.icon className="size-5 text-ink-500" />
-                <p className="mt-3 font-semibold text-ink-900">{x.label} inspection</p>
+                <p className="mt-3 font-semibold text-ink-900">{t(x.label)}</p>
                 <div className="mt-2">
                   <InspectionStatusBadge i={x.i} />
                 </div>
@@ -230,7 +235,7 @@ export default function OverviewTab({ lease }: { lease: LeaseDetail }) {
                       />
                     </div>
                     <p className="mt-1.5 text-xs text-ink-500">
-                      {x.i.status === 'DRAFT' ? `${x.i.documented}/${x.i.itemCount} documented` : `${x.i.approved}/${x.i.itemCount} agreed`}
+                      {x.i.status === 'DRAFT' ? t('{a}/{b} checked', { a: x.i.documented!, b: x.i.itemCount! }) : t('{a}/{b} agreed', { a: x.i.approved!, b: x.i.itemCount! })}
                     </p>
                   </div>
                 )}
@@ -240,17 +245,17 @@ export default function OverviewTab({ lease }: { lease: LeaseDetail }) {
           <Link to="settlement" className="group">
             <Card className="h-full p-5 transition-shadow group-hover:shadow-md">
               <Scale className="size-5 text-ink-500" />
-              <p className="mt-3 font-semibold text-ink-900">Deposit settlement</p>
+              <p className="mt-3 font-semibold text-ink-900">{t('Deposit settlement')}</p>
               <div className="mt-2">
                 {lease.settlement ? (
-                  <Badge tone={lease.settlement.status === 'AGREED' ? 'ok' : 'ink'}>{lease.settlement.status === 'AGREED' ? 'Agreed' : 'Open'}</Badge>
+                  <Badge tone={lease.settlement.status === 'AGREED' ? 'ok' : 'ink'}>{lease.settlement.status === 'AGREED' ? t('Agreed') : t('Open')}</Badge>
                 ) : (
-                  <Badge tone="muted">After move-out</Badge>
+                  <Badge tone="muted">{t('After move-out')}</Badge>
                 )}
               </div>
               {lease.settlement?.finalRefund != null && (
                 <p className="mt-4 text-sm text-ink-600">
-                  Refund <strong className="text-ok-700">{inr(lease.settlement.finalRefund)}</strong>
+                  {t('Refund')} <strong className="text-ok-700">{inr(lease.settlement.finalRefund)}</strong>
                 </p>
               )}
             </Card>
@@ -260,13 +265,13 @@ export default function OverviewTab({ lease }: { lease: LeaseDetail }) {
 
       <aside className="space-y-4">
         <Card className="p-5">
-          <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">Tenancy details</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">{t('Tenancy details')}</p>
           <dl className="mt-3 space-y-2.5 text-sm">
             {[
-              ['Start date', dateShort(lease.startDate)],
-              ['Type', lease.property.propertyType.replace('_', ' ').toLowerCase()],
-              ['Rooms', String(lease.property.rooms?.length ?? 0)],
-              ['Deposit', `${(lease.securityDeposit / lease.monthlyRent).toFixed(1)} months’ rent`],
+              [t('Start date'), dateShort(lease.startDate)],
+              [t('Type'), t(PROPERTY_TYPES.find((x) => x.value === lease.property.propertyType)?.label ?? '')],
+              [t('Rooms'), String(lease.property.rooms?.length ?? 0)],
+              [t('Deposit'), t('{n} months’ rent', { n: (lease.securityDeposit / lease.monthlyRent).toFixed(1) })],
             ].map(([k, v]) => (
               <div key={k} className="flex justify-between gap-3">
                 <dt className="text-ink-500">{k}</dt>
@@ -277,7 +282,7 @@ export default function OverviewTab({ lease }: { lease: LeaseDetail }) {
           <div className="mt-4 flex flex-wrap gap-1.5">
             {lease.property.rooms?.map((r) => (
               <span key={r.id} className="rounded-lg bg-ink-50 px-2 py-1 text-xs text-ink-600">
-                {r.name}
+                {t(r.name)}
               </span>
             ))}
           </div>

@@ -13,12 +13,30 @@ import { Button, cx } from './ui';
 // commercial provider or host your own.
 const TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
-/** The OpenStreetMap credit, shown in the footer of pages that have maps. */
-export function MapCredit({ className }: { className?: string }) {
+/**
+ * OpenStreetMap's licence requires visible credit on the map. Instead of
+ * Leaflet's text strip, a small "i" in the corner reveals it on hover/tap
+ * (the same pattern most map apps use).
+ */
+function MapCredit() {
   return (
-    <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" className={cx('hover:text-ink-700 hover:underline', className)}>
-      Map data © OpenStreetMap contributors
-    </a>
+    <div className="group absolute bottom-2 right-2 z-[400] flex items-center gap-1.5">
+      <a
+        href="https://www.openstreetmap.org/copyright"
+        target="_blank"
+        rel="noreferrer"
+        className="pointer-events-none whitespace-nowrap rounded-md bg-white/90 px-2 py-0.5 text-[10px] text-ink-600 opacity-0 shadow-sm transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
+      >
+        © OpenStreetMap contributors
+      </a>
+      <button
+        type="button"
+        aria-label="Map data credits"
+        className="grid size-5 place-items-center rounded-full bg-white/90 font-serif text-[11px] font-bold italic text-ink-500 shadow-sm"
+      >
+        i
+      </button>
+    </div>
   );
 }
 
@@ -102,6 +120,7 @@ export function MapPicker({
           />
         )}
       </MapContainer>
+      <MapCredit />
       <div className="absolute right-3 top-3 z-[400]">
         <Button
           type="button"
@@ -121,7 +140,7 @@ export function MapPicker({
       </div>
       {!value && (
         <div className="pointer-events-none absolute inset-x-0 bottom-3 z-[400] text-center">
-          <span className="rounded-full bg-ink-950/80 px-3 py-1.5 text-xs font-medium text-white">Tap the map to drop a pin on the building</span>
+          <span className="rounded-full bg-night/80 px-3 py-1.5 text-xs font-medium text-snow">Tap the map to drop a pin on the building</span>
         </div>
       )}
     </div>
@@ -176,6 +195,7 @@ export function EvidenceMap({
           </Marker>
         ))}
       </MapContainer>
+      <MapCredit />
     </div>
   );
 }

@@ -31,6 +31,7 @@ export function useEvidenceUrl(id: number | null | undefined) {
   return url;
 }
 
+/** Save the PDF to the Downloads folder. */
 export async function downloadReport(id: number) {
   const blob = await apiBlob(`/reports/${id}/file`);
   const url = URL.createObjectURL(blob);
@@ -39,4 +40,23 @@ export async function downloadReport(id: number) {
   a.download = `rentshield-report-${id}.pdf`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+/**
+ * Open the PDF in a new browser tab. The tab is opened immediately (inside
+ * the click) so pop-up blockers allow it, then pointed at the file once it
+ * has downloaded.
+ */
+export async function openReport(id: number) {
+  const tab = window.open('', '_blank');
+  try {
+    const blob = await apiBlob(`/reports/${id}/file`);
+    const url = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+    if (tab) tab.location.href = url;
+    else window.location.href = url;
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  } catch (err) {
+    tab?.close();
+    throw err;
+  }
 }

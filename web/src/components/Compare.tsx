@@ -36,8 +36,8 @@ export function BeforeAfter({ beforeId, afterId }: { beforeId: number; afterId: 
           draggable={false}
         />
       )}
-      <span className="absolute left-3 top-3 rounded-full bg-ink-950/70 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur">Move-in</span>
-      <span className="absolute right-3 top-3 rounded-full bg-ink-950/70 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur">Move-out</span>
+      <span className="absolute left-3 top-3 rounded-full bg-night/70 px-2.5 py-1 text-[11px] font-semibold text-snow backdrop-blur">Move-in</span>
+      <span className="absolute right-3 top-3 rounded-full bg-night/70 px-2.5 py-1 text-[11px] font-semibold text-snow backdrop-blur">Move-out</span>
       <div className="absolute inset-y-0 w-0.5 bg-white shadow-[0_0_0_1px_rgb(0_0_0/0.15)]" style={{ left: `${pos}%` }}>
         <span className="absolute top-1/2 left-1/2 grid size-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white text-ink-900 shadow-lg">
           <MoveHorizontal className="size-4" />
@@ -118,7 +118,7 @@ export function ChangeDetector({ beforeId, afterId }: { beforeId: number; afterI
         {after && <img src={after} alt="Move-out" className="absolute inset-0 size-full object-cover" />}
         <canvas ref={canvas} className={cx('absolute inset-0 size-full transition-opacity', state === 'done' ? 'opacity-100' : 'opacity-0')} />
         {state !== 'done' && (
-          <div className="absolute inset-0 grid place-items-center bg-ink-950/40 backdrop-blur-[2px]">
+          <div className="absolute inset-0 grid place-items-center bg-night/40 backdrop-blur-[2px]">
             <Button variant="light" onClick={run} disabled={state === 'running'}>
               <ScanSearch className="size-4" />
               {state === 'running' ? 'Comparing pixels…' : state === 'error' ? 'Try again' : 'Highlight possible changes'}

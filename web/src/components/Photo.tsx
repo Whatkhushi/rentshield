@@ -6,30 +6,32 @@ import { useEvidenceUrl } from '../lib/files';
 import { bytes, dateTime, distance, shortHash } from '../lib/format';
 import type { Evidence, PhotoCheck } from '../lib/types';
 import { EvidenceMap } from './Maps';
+import { useT } from '../lib/i18n';
 import { Badge, Button, Modal, cx } from './ui';
 
 type Pin = { latitude: number | null; longitude: number | null } | undefined;
 
 /** Small chip: was this photo taken at the property, and recently? */
 export function PlaceBadge({ check, compact }: { check?: PhotoCheck; compact?: boolean }) {
+  const t = useT();
   if (!check) return null;
   const base = 'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold backdrop-blur';
   const chip =
     check.place === 'AT_PROPERTY' ? (
       <span className={cx(base, 'bg-ok-600/90 text-white')} title="Photo location is within 150 m of the property pin">
-        <MapPin className="size-3" /> {compact ? 'At property' : `At property · ${check.distanceMeters} m`}
+        <MapPin className="size-3" /> {compact ? t('At property') : `${t('At property')} · ${check.distanceMeters} m`}
       </span>
     ) : check.place === 'AWAY' ? (
       <span className={cx(base, 'bg-warn-500/95 text-white')} title="Photo location is far from the property pin">
-        <MapPin className="size-3" /> {distance(check.distanceMeters!)} away
+        <MapPin className="size-3" /> {t('{d} away', { d: distance(check.distanceMeters!) })}
       </span>
     ) : check.place === 'PROPERTY_NOT_PINNED' ? (
-      <span className={cx(base, 'bg-ink-950/70 text-white')}>
-        <MapPin className="size-3" /> Located
+      <span className={cx(base, 'bg-night/70 text-snow')}>
+        <MapPin className="size-3" /> {t('Located')}
       </span>
     ) : (
-      <span className={cx(base, 'bg-ink-950/60 text-white/90')} title="This file has no location data (common for screenshots and laptop uploads)">
-        <MapPinOff className="size-3" /> No location
+      <span className={cx(base, 'bg-night/60 text-snow/90')} title="This file has no location data (common for screenshots and laptop uploads)">
+        <MapPinOff className="size-3" /> {t('No location')}
       </span>
     );
   return (
@@ -37,7 +39,7 @@ export function PlaceBadge({ check, compact }: { check?: PhotoCheck; compact?: b
       {chip}
       {check.stale && (
         <span className={cx(base, 'bg-warn-500/95 text-white')} title="Taken well before it was uploaded">
-          <Clock className="size-3" /> {Math.round(check.ageDays!)}d old
+          <Clock className="size-3" /> {t('{n}d old', { n: Math.round(check.ageDays!) })}
         </span>
       )}
     </span>
@@ -111,7 +113,7 @@ export function EvidenceViewer({ ev, open, onClose, property }: { ev: Evidence; 
   return (
     <Modal open={open} onClose={onClose} title={ev.originalName} wide>
       <div className="grid gap-5 md:grid-cols-[1fr_300px]">
-        <div className="grid min-h-64 place-items-center overflow-hidden rounded-2xl bg-ink-950">
+        <div className="grid min-h-64 place-items-center overflow-hidden rounded-2xl bg-night">
           {isImage ? (
             url ? <img src={url} alt="" className="max-h-[65vh] w-auto" /> : <div className="size-10 animate-spin rounded-full border-2 border-white/20 border-t-white" />
           ) : (
@@ -197,7 +199,7 @@ export function PhotoTile({ ev, onRemove, size = 'md', property }: { ev: Evidenc
             <span className="pointer-events-none absolute left-1.5 top-1.5">
               <PlaceBadge check={ev.check} compact />
             </span>
-            <span className="pointer-events-none absolute inset-x-1.5 bottom-1.5 flex items-center gap-1 truncate rounded-md bg-ink-950/70 px-1.5 py-0.5 font-mono text-[9px] text-white/90 backdrop-blur">
+            <span className="pointer-events-none absolute inset-x-1.5 bottom-1.5 flex items-center gap-1 truncate rounded-md bg-night/70 px-1.5 py-0.5 font-mono text-[9px] text-snow/90 backdrop-blur">
               <Fingerprint className="size-2.5 shrink-0" />
               {shortHash(ev.sha256)}
             </span>

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, Columns2, Info, MoveHorizontal, ScanSearch } from 'lucide-react';
 import { api } from '../../lib/api';
 import { CONDITIONS, conditionLabel } from '../../lib/format';
+import { useT } from '../../lib/i18n';
 import type { Condition, Evidence } from '../../lib/types';
 import { BeforeAfter, ChangeDetector } from '../../components/Compare';
 import { NoPhoto, PhotoTile } from '../../components/Photo';
@@ -22,6 +23,7 @@ const firstPhoto = (e: Evidence[] | undefined) => e?.find((x) => x.mimeType.star
 type View = 'slider' | 'side' | 'changes';
 
 export default function CompareTab({ inspectionId }: { inspectionId: number }) {
+  const t = useT();
   const [filter, setFilter] = useState<'all' | 'changed'>('changed');
   const { data, isLoading, error } = useQuery({
     queryKey: ['comparison', inspectionId],
@@ -38,15 +40,15 @@ export default function CompareTab({ inspectionId }: { inspectionId: number }) {
     <div className="space-y-6">
       <Card className="flex flex-wrap items-center justify-between gap-4 p-5">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">Move-in vs move-out</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">{t('Move-in vs move-out')}</p>
           <p className="text-lg font-semibold text-ink-900">
-            {changed.length === 0 ? 'No condition changes recorded' : `${changed.length} of ${data.pairs.length} items changed condition`}
+            {changed.length === 0 ? t('No condition changes recorded') : t('{a} of {b} items changed condition', { a: changed.length, b: data.pairs.length })}
           </p>
         </div>
         <div className="flex rounded-xl bg-ink-50 p-1 text-sm font-semibold">
           {(['changed', 'all'] as const).map((f) => (
             <button key={f} onClick={() => setFilter(f)} className={cx('rounded-lg px-3 py-1.5', filter === f ? 'bg-white text-ink-900 shadow-sm' : 'text-ink-500')}>
-              {f === 'changed' ? `Changed (${changed.length})` : `All (${data.pairs.length})`}
+              {f === 'changed' ? t('Changed ({n})', { n: changed.length }) : t('All ({n})', { n: data.pairs.length })}
             </button>
           ))}
         </div>
@@ -68,6 +70,7 @@ export default function CompareTab({ inspectionId }: { inspectionId: number }) {
 }
 
 function PairCard({ p }: { p: Pair }) {
+  const t = useT();
   const before = firstPhoto(p.moveIn?.evidence);
   const after = firstPhoto(p.moveOut.evidence);
   const both = before && after;
@@ -81,10 +84,10 @@ function PairCard({ p }: { p: Pair }) {
           <h3 className="font-semibold text-ink-900">{p.name}</h3>
         </div>
         <div className="flex items-center gap-2 text-sm">
-          <Badge tone={toneOf(p.moveIn?.condition ?? null)}>{conditionLabel(p.moveIn?.condition ?? null)}</Badge>
+          <Badge tone={toneOf(p.moveIn?.condition ?? null)}>{t(conditionLabel(p.moveIn?.condition ?? null))}</Badge>
           <ArrowRight className="size-4 text-ink-300" />
-          <Badge tone={toneOf(p.moveOut.condition)}>{conditionLabel(p.moveOut.condition)}</Badge>
-          {p.changed && <Badge tone="warn">Changed</Badge>}
+          <Badge tone={toneOf(p.moveOut.condition)}>{t(conditionLabel(p.moveOut.condition))}</Badge>
+          {p.changed && <Badge tone="warn">{t('Changed')}</Badge>}
         </div>
       </div>
 
@@ -98,7 +101,7 @@ function PairCard({ p }: { p: Pair }) {
             ] as const
           ).map(([v, Icon, label]) => (
             <button key={v} onClick={() => setView(v)} className={cx('flex items-center gap-1.5 rounded-lg px-3 py-1.5', view === v ? 'bg-white text-ink-900 shadow-sm' : 'text-ink-500')}>
-              <Icon className="size-3.5" /> {label}
+              <Icon className="size-3.5" /> {t(label)}
             </button>
           ))}
         </div>

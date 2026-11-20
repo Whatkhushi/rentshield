@@ -42,36 +42,42 @@ export const PROPERTY_TYPES = [
   { value: 'PG', label: 'PG / shared' },
 ] as const;
 
-/** Readable sentence for an audit action. */
-export function describeAction(action: string, data: Record<string, unknown> | null): string {
+type Translate = (s: string, vars?: Record<string, string | number>) => string;
+
+/** Readable sentence for an audit action, in the current interface language. */
+export function describeAction(action: string, data: Record<string, unknown> | null, t: Translate): string {
   const d = data ?? {};
-  const map: Record<string, string> = {
-    'lease.created': `created the tenancy as ${String(d.role ?? '').toLowerCase()}`,
-    'invitation.created': `created an invite link for the ${String(d.role ?? '').toLowerCase()}`,
-    'invitation.accepted': `joined as ${String(d.role ?? '').toLowerCase()}`,
-    'inspection.started': `started the ${d.type === 'MOVE_OUT' ? 'move-out' : 'move-in'} inspection`,
-    'inspection.submitted': `submitted the ${d.type === 'MOVE_OUT' ? 'move-out' : 'move-in'} inspection for review`,
-    'inspection.finalized': `gave the final approval: the ${d.type === 'MOVE_OUT' ? 'move-out' : 'move-in'} inspection is agreed and locked`,
-    'item.approved': `approved “${d.item}”`,
-    'item.disputed': `disputed “${d.item}”`,
-    'item.revised': 'revised a disputed item',
-    'items.approved_all': `approved ${d.count} item(s)`,
-    'evidence.uploaded': `uploaded a ${d.kind === 'INVOICE' ? 'invoice' : 'photo'}`,
-    'evidence.removed': 'removed a photo',
-    'settlement.opened': 'opened the deposit settlement',
-    'deduction.proposed': `proposed a deduction of ${inr(Number(d.amount))}`,
-    'deduction.revised': `revised a deduction to ${inr(Number(d.to))}`,
-    'deduction.withdrawn': `withdrew a ${inr(Number(d.amount))} deduction`,
-    'deduction.accepted': `accepted a ${inr(Number(d.amount))} deduction`,
-    'deduction.disputed': `disputed a ${inr(Number(d.amount))} deduction`,
-    'settlement.confirmed': 'confirmed the settlement',
-    'settlement.agreed': `confirmed — settlement agreed, refund ${inr(Number(d.refund))}`,
-    'report.requested': 'generated a PDF report',
-    'property.pinned': 'pinned the property on the map',
-    'item.added': `added “${d.item}” to the ${String(d.room ?? '')} checklist`,
-    'item.removed': `removed “${d.item}” from the checklist`,
-    'items.marked_good': `marked ${d.count} remaining item(s) as Good`,
-    'item.noted': `recorded a disagreement on “${d.item}” (both views kept)`,
+  const role = t(d.role === 'LANDLORD' ? 'landlord' : 'tenant');
+  const which = t(d.type === 'MOVE_OUT' ? 'move-out' : 'move-in');
+  const item = t(String(d.item ?? ''));
+  const map: Record<string, [string, Record<string, string | number>?]> = {
+    'lease.created': ['created the tenancy as {role}', { role }],
+    'invitation.created': ['created an invite link for the {role}', { role }],
+    'invitation.accepted': ['joined as {role}', { role }],
+    'inspection.started': ['started the {which} inspection', { which }],
+    'inspection.submitted': ['submitted the {which} inspection for review', { which }],
+    'inspection.finalized': ['gave the final approval: the {which} inspection is agreed and locked', { which }],
+    'item.approved': ['approved “{item}”', { item }],
+    'item.disputed': ['sent back “{item}”', { item }],
+    'item.revised': ['revised an item that was sent back'],
+    'items.approved_all': ['approved {n} item(s)', { n: Number(d.count) }],
+    'evidence.uploaded': [d.kind === 'INVOICE' ? 'uploaded an invoice' : 'uploaded a photo'],
+    'evidence.removed': ['removed a photo'],
+    'settlement.opened': ['opened the deposit settlement'],
+    'deduction.proposed': ['proposed a deduction of {amount}', { amount: inr(Number(d.amount)) }],
+    'deduction.revised': ['revised a deduction to {amount}', { amount: inr(Number(d.to)) }],
+    'deduction.withdrawn': ['withdrew a {amount} deduction', { amount: inr(Number(d.amount)) }],
+    'deduction.accepted': ['accepted a {amount} deduction', { amount: inr(Number(d.amount)) }],
+    'deduction.disputed': ['disputed a {amount} deduction', { amount: inr(Number(d.amount)) }],
+    'settlement.confirmed': ['confirmed the settlement'],
+    'settlement.agreed': ['confirmed: settlement agreed, refund {amount}', { amount: inr(Number(d.refund)) }],
+    'report.requested': ['generated a PDF report'],
+    'property.pinned': ['pinned the property on the map'],
+    'item.added': ['added “{item}” to the checklist', { item }],
+    'item.removed': ['removed “{item}” from the checklist', { item }],
+    'items.marked_good': ['marked {n} remaining item(s) as Good', { n: Number(d.count) }],
+    'item.noted': ['recorded a disagreement on “{item}” (both views kept)', { item }],
   };
-  return map[action] ?? action;
+  const entry = map[action];
+  return entry ? t(entry[0], entry[1]) : action;
 }

@@ -15,6 +15,7 @@ import { inspectionsRouter } from './modules/inspections/inspections.routes.js';
 import { evidenceRouter } from './modules/evidence/evidence.routes.js';
 import { settlementsRouter } from './modules/settlements/settlements.routes.js';
 import { reportsRouter } from './modules/reports/reports.routes.js';
+import { assistantRouter } from './modules/assistant/assistant.routes.js';
 
 export function createApp() {
   const app = express();
@@ -80,6 +81,7 @@ export function createApp() {
   api.use(evidenceRouter);
   api.use(settlementsRouter);
   api.use(reportsRouter);
+  api.use('/assistant', assistantRouter);
   app.use('/api/v1', api);
   app.use('/api', notFoundHandler);
 

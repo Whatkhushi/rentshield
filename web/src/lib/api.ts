@@ -78,6 +78,41 @@ export async function api<T>(path: string, opts: { method?: string; body?: Body 
   return res.json() as Promise<T>;
 }
 
+/**
+ * POST and read a Server-Sent Events stream (used by the help assistant).
+ * Calls onEvent for every `data: {...}` message as it arrives.
+ */
+export async function apiStream(path: string, body: unknown, onEvent: (e: Record<string, unknown>) => void, signal?: AbortSignal) {
+  const open = () =>
+    fetch(`/api/v1${path}`, {
+      method: 'POST',
+      credentials: 'include',
+      signal,
+      headers: { 'Content-Type': 'application/json', ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
+      body: JSON.stringify(body),
+    });
+  let res = await open();
+  if (res.status === 401 && (await refreshSession())) res = await open();
+  if (!res.ok || !res.body) return fail(res);
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    // Events are separated by a blank line.
+    let cut;
+    while ((cut = buffer.indexOf('\n\n')) !== -1) {
+      const chunk = buffer.slice(0, cut);
+      buffer = buffer.slice(cut + 2);
+      const line = chunk.split('\n').find((l) => l.startsWith('data: '));
+      if (line) onEvent(JSON.parse(line.slice(6)));
+    }
+  }
+}
+
 /** Download a protected file (photo, PDF) as a Blob. */
 export async function apiBlob(path: string): Promise<Blob> {
   const res = await send(path, 'GET');

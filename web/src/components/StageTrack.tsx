@@ -1,6 +1,7 @@
 import { Check } from 'lucide-react';
 import { STAGES, stageIndex } from '../lib/format';
 import type { Stage } from '../lib/types';
+import { useT } from '../lib/i18n';
 import { cx } from './ui';
 
 /** Compact progress bar of the tenancy workflow. */
@@ -17,6 +18,7 @@ export function StageBar({ stage }: { stage: Stage }) {
 
 /** Full stepper with labels, for the tenancy header. */
 export function StageStepper({ stage }: { stage: Stage }) {
+  const t = useT();
   const idx = stageIndex(stage);
   return (
     <ol className="flex items-center gap-1 overflow-x-auto pb-1">
@@ -34,7 +36,7 @@ export function StageStepper({ stage }: { stage: Stage }) {
               )}
             >
               {done ? <Check className="size-3.5" /> : <span className="font-mono text-[10px]">{i + 1}</span>}
-              {s.label}
+              {t(s.label)}
             </span>
             {i < STAGES.length - 1 && <span className={cx('h-px w-4', done ? 'bg-ok-500/40' : 'bg-white/15')} />}
           </li>
