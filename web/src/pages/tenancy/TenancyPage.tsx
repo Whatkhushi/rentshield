@@ -58,8 +58,9 @@ export default function TenancyPage() {
         <ArrowLeft className="size-4" /> {t('All tenancies')}
       </Link>
 
-      <header className="keep-light relative overflow-hidden rounded-3xl bg-night p-6 text-snow sm:p-8">
-        <div className="absolute -right-20 -top-20 size-72 rounded-full bg-ok-500/10 blur-3xl" />
+      <header className="keep-light relative overflow-hidden rounded-3xl bg-gradient-to-br from-night via-[#1d2366] to-brand-700 p-6 text-snow shadow-xl shadow-brand-700/20 sm:p-8">
+        <div className="absolute -right-20 -top-20 size-72 rounded-full bg-brand-400/25 blur-3xl" />
+        <div className="absolute -bottom-24 left-1/4 size-60 rounded-full bg-ok-500/10 blur-3xl" />
         <div className="relative flex flex-wrap items-start justify-between gap-6">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-ink-300">

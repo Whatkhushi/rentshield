@@ -6,7 +6,7 @@ export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Bool
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success' | 'light';
 const variants: Record<Variant, string> = {
-  primary: 'bg-ink-900 text-white hover:bg-ink-800 shadow-sm disabled:bg-ink-900/40',
+  primary: 'bg-brand-600 text-snow hover:bg-brand-700 shadow-sm shadow-brand-600/25 disabled:bg-brand-600/40 disabled:shadow-none',
   secondary: 'bg-white text-ink-800 ring-1 ring-ink-200 hover:bg-ink-50 hover:ring-ink-300',
   ghost: 'text-ink-600 hover:bg-ink-100 hover:text-ink-900',
   danger: 'bg-white text-red-700 ring-1 ring-red-200 hover:bg-red-50',
@@ -36,7 +36,7 @@ export function Button({
 }
 
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cx('rounded-2xl bg-white shadow-[0_1px_2px_rgb(17_40_75/0.06)] ring-1 ring-ink-100', className)}>{children}</div>;
+  return <div className={cx('rounded-2xl bg-white shadow-[0_1px_3px_rgb(20_27_48/0.06),0_8px_24px_-12px_rgb(20_27_48/0.08)] ring-1 ring-ink-100', className)}>{children}</div>;
 }
 
 const tones = {
@@ -45,7 +45,8 @@ const tones = {
   bad: 'bg-red-50 text-red-700 ring-red-100',
   ink: 'bg-ink-50 text-ink-700 ring-ink-100',
   muted: 'bg-stone-100 text-stone-500 ring-stone-200',
-  dark: 'bg-ink-900 text-white ring-ink-900',
+  dark: 'bg-brand-600 text-snow ring-brand-600',
+  brand: 'bg-brand-50 text-brand-700 ring-brand-100',
 };
 export type Tone = keyof typeof tones;
 
@@ -103,7 +104,7 @@ export function Avatar({ name, size = 'md', className }: { name: string | null |
   return (
     <span
       className={cx(
-        'grid shrink-0 place-items-center rounded-full bg-gradient-to-br from-ink-600 to-ink-900 font-semibold text-white',
+        'grid shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-500 to-brand-700 font-semibold text-snow',
         size === 'sm' ? 'size-7 text-[10px]' : 'size-10 text-sm',
         !name && 'from-stone-200 to-stone-300 text-stone-500',
         className,

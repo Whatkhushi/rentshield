@@ -53,7 +53,7 @@ function Ring({ value, total, active }: { value: number; total: number; active?:
   const done = value === total && total > 0;
   return (
     <svg viewBox="0 0 24 24" className="size-6 shrink-0 -rotate-90">
-      <circle cx="12" cy="12" r={r} fill="none" strokeWidth="3" className={active ? 'stroke-white/15' : 'stroke-ink-100'} />
+      <circle cx="12" cy="12" r={r} fill="none" strokeWidth="3" className={active ? 'stroke-snow/25' : 'stroke-ink-100'} />
       <circle
         cx="12"
         cy="12"
@@ -63,7 +63,7 @@ function Ring({ value, total, active }: { value: number; total: number; active?:
         strokeLinecap="round"
         strokeDasharray={c}
         strokeDashoffset={c * (1 - pct)}
-        className={cx('transition-all', done ? 'stroke-ok-500' : active ? 'stroke-white' : 'stroke-ink-700')}
+        className={cx('transition-all', done ? 'stroke-ok-500' : active ? 'stroke-snow' : 'stroke-brand-600')}
       />
     </svg>
   );
@@ -225,13 +225,13 @@ function RoomButton({
       onClick={onClick}
       className={cx(
         'flex shrink-0 items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm transition-colors',
-        active ? 'bg-ink-900 text-white shadow-md' : 'text-ink-600 hover:bg-white',
+        active ? 'bg-brand-600 text-snow shadow-md shadow-brand-600/25' : 'text-ink-600 hover:bg-white',
       )}
     >
-      <Icon className={cx('size-4 shrink-0', active ? 'text-ok-500' : 'text-ink-400')} />
+      <Icon className={cx('size-4 shrink-0', active ? 'text-snow' : 'text-ink-400')} />
       <span className="flex-1 truncate font-medium">{label}</span>
       {warn && <span className="size-2 rounded-full bg-warn-500" title="Has disputed items" />}
-      <span className={cx('font-mono text-[10px]', active ? 'text-ink-300' : 'text-ink-400')}>
+      <span className={cx('font-mono text-[10px]', active ? 'text-snow/70' : 'text-ink-400')}>
         {done}/{total}
       </span>
       <Ring value={done} total={total} active={active} />
@@ -307,7 +307,7 @@ function StatusBanner({
     <Card className="overflow-hidden">
       <div className={cx('flex flex-wrap items-center justify-between gap-4 p-5', mode === 'locked' && 'bg-ok-50', mode === 'wait' && counts.disputed > 0 && 'bg-warn-50')}>
         <div className="flex items-start gap-3">
-          <div className={cx('grid size-11 shrink-0 place-items-center rounded-xl text-white', mode === 'locked' ? 'bg-ok-600' : 'bg-ink-900')}>
+          <div className={cx('grid size-11 shrink-0 place-items-center rounded-xl text-white', mode === 'locked' ? 'bg-ok-600' : 'bg-brand-600')}>
             {mode === 'locked' ? <Lock className="size-5" /> : <ClipboardList className="size-5" />}
           </div>
           <div>
@@ -333,7 +333,7 @@ function StatusBanner({
         {counts.noted > 0 && <span className="text-ink-700">{t('{n} disagreement(s) recorded', { n: counts.noted })}</span>}
       </div>
       <div className="h-1 bg-ink-50">
-        <div className={cx('h-full transition-all duration-500', mode === 'locked' ? 'bg-ok-500' : 'bg-ink-800')} style={{ width: `${pct * 100}%` }} />
+        <div className={cx('h-full transition-all duration-500', mode === 'locked' ? 'bg-ok-500' : 'bg-brand-600')} style={{ width: `${pct * 100}%` }} />
       </div>
     </Card>
   );
@@ -607,7 +607,7 @@ function ItemCard({ item, inspection, mode, canRemove, onChanged }: { item: Item
                         c.tone === 'ok' && 'bg-ok-600 text-white',
                         c.tone === 'warn' && 'bg-warn-500 text-white',
                         c.tone === 'bad' && 'bg-red-600 text-white',
-                        c.tone === 'ink' && 'bg-ink-800 text-white',
+                        c.tone === 'ink' && 'bg-brand-600 text-snow',
                         c.tone === 'muted' && 'bg-stone-500 text-white',
                       )
                     : 'text-ink-500 hover:bg-white hover:text-ink-900',

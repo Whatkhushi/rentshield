@@ -19,7 +19,7 @@ export function BeforeAfter({ beforeId, afterId }: { beforeId: number; afterId: 
   return (
     <div
       ref={box}
-      className="relative aspect-[4/3] w-full cursor-ew-resize touch-none select-none overflow-hidden rounded-2xl bg-ink-900"
+      className="relative aspect-[4/3] w-full cursor-ew-resize touch-none select-none overflow-hidden rounded-2xl bg-night"
       onPointerDown={(e) => {
         (e.target as HTMLElement).setPointerCapture(e.pointerId);
         move(e.clientX);
@@ -114,7 +114,7 @@ export function ChangeDetector({ beforeId, afterId }: { beforeId: number; afterI
 
   return (
     <div>
-      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-ink-900">
+      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-night">
         {after && <img src={after} alt="Move-out" className="absolute inset-0 size-full object-cover" />}
         <canvas ref={canvas} className={cx('absolute inset-0 size-full transition-opacity', state === 'done' ? 'opacity-100' : 'opacity-0')} />
         {state !== 'done' && (

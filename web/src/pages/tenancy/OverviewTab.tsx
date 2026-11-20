@@ -268,12 +268,14 @@ export default function OverviewTab({ lease }: { lease: LeaseDetail }) {
 
         <div className="grid gap-4 sm:grid-cols-3">
           {[
-            { icon: ClipboardCheck, label: 'Move-in inspection', to: 'move-in', i: moveIn },
-            { icon: ClipboardCheck, label: 'Move-out inspection', to: 'move-out', i: moveOut },
+            { icon: ClipboardCheck, label: 'Move-in inspection', to: 'move-in', i: moveIn, chip: 'bg-brand-50 text-brand-600' },
+            { icon: ClipboardCheck, label: 'Move-out inspection', to: 'move-out', i: moveOut, chip: 'bg-warn-50 text-warn-700' },
           ].map((x) => (
             <Link key={x.label} to={x.to} className="group">
-              <Card className="h-full p-5 transition-shadow group-hover:shadow-md">
-                <x.icon className="size-5 text-ink-500" />
+              <Card className="h-full p-5 transition-all group-hover:-translate-y-0.5 group-hover:ring-brand-200">
+                <span className={cx('grid size-10 place-items-center rounded-xl', x.chip)}>
+                  <x.icon className="size-5" />
+                </span>
                 <p className="mt-3 font-semibold text-ink-900">{t(x.label)}</p>
                 <div className="mt-2">
                   <InspectionStatusBadge i={x.i} />
@@ -282,7 +284,7 @@ export default function OverviewTab({ lease }: { lease: LeaseDetail }) {
                   <div className="mt-4">
                     <div className="h-1.5 overflow-hidden rounded-full bg-ink-100">
                       <div
-                        className={cx('h-full rounded-full', x.i.status === 'FINALIZED' ? 'bg-ok-500' : 'bg-ink-800')}
+                        className={cx('h-full rounded-full', x.i.status === 'FINALIZED' ? 'bg-ok-500' : 'bg-brand-600')}
                         style={{ width: `${((x.i.status === 'DRAFT' ? x.i.documented! : x.i.approved!) / Math.max(1, x.i.itemCount!)) * 100}%` }}
                       />
                     </div>
@@ -295,8 +297,10 @@ export default function OverviewTab({ lease }: { lease: LeaseDetail }) {
             </Link>
           ))}
           <Link to="settlement" className="group">
-            <Card className="h-full p-5 transition-shadow group-hover:shadow-md">
-              <Scale className="size-5 text-ink-500" />
+            <Card className="h-full p-5 transition-all group-hover:-translate-y-0.5 group-hover:ring-brand-200">
+              <span className="grid size-10 place-items-center rounded-xl bg-ok-50 text-ok-700">
+                <Scale className="size-5" />
+              </span>
               <p className="mt-3 font-semibold text-ink-900">{t('Deposit settlement')}</p>
               <div className="mt-2">
                 {lease.settlement ? (

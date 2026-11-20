@@ -11,15 +11,15 @@ import { Avatar, Spinner } from './ui';
 function Footer() {
   const { t } = useI18n();
   return (
-    // Same darker tint as the header, so both clearly frame the page.
-    <footer className="mt-20 border-t border-ink-200 bg-ink-100">
+    // Deep navy band (a slightly raised dark surface in dark mode) so it clearly ends the page.
+    <footer className="mt-20 bg-night text-snow dark:border-t dark:border-ink-100 dark:bg-white">
       {/* Extra space at the bottom/right so the floating Help button never covers footer text. */}
       <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 pt-6 pb-20 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:pb-6 xl:pr-6 sm:pr-36">
-        <div className="flex items-center gap-2 font-bold text-ink-900">
-          <ShieldMark className="size-5 text-ink-900" />
+        <div className="flex items-center gap-2 font-bold text-snow">
+          <ShieldMark className="size-5 text-snow" />
           RentShield
         </div>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-500">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-snow/60">
           <span>© {new Date().getFullYear()} RentShield</span>
           <span className="flex items-center gap-1">
             {t('Made with')} <Heart className="size-3 fill-red-500 text-red-500" /> {t('in India')}
@@ -43,8 +43,8 @@ export default function AppShell() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      {/* Darker tint than the page (ink-100 vs paper), in both light and dark mode. */}
-      <header className="sticky top-0 z-40 border-b border-ink-200 bg-ink-100/95 shadow-[0_1px_3px_rgb(17_40_75/0.06)] backdrop-blur-md">
+      {/* White bar on the grey-blue page (a raised dark surface in dark mode). */}
+      <header className="sticky top-0 z-40 border-b border-ink-100 bg-white/90 shadow-[0_1px_2px_rgb(20_27_48/0.04)] backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <Logo to="/app" />
           <div className="flex items-center gap-1.5 sm:gap-3">

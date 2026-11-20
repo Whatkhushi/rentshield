@@ -95,7 +95,7 @@ export default function RecordsTab({ lease }: { lease: LeaseDetail }) {
       {/* ---- Reports ---- */}
       <aside className="space-y-4 lg:sticky lg:top-32 lg:self-start">
         <Card className="p-5">
-          <div className="grid size-11 place-items-center rounded-xl bg-ink-900 text-white">
+          <div className="grid size-11 place-items-center rounded-xl bg-brand-600 text-snow">
             <FileText className="size-5" />
           </div>
           <h3 className="mt-4 font-semibold text-ink-900">{t('Handover & settlement report')}</h3>

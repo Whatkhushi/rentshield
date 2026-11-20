@@ -13,7 +13,7 @@ export function ShieldMark({ className }: { className?: string }) {
 export function Logo({ light, to = '/' }: { light?: boolean; to?: string }) {
   return (
     <Link to={to} className={cx('flex items-center gap-2 text-[17px] font-bold tracking-tight', light ? 'text-white' : 'text-ink-900')}>
-      <ShieldMark className={cx('size-7', light ? 'text-white/95' : 'text-ink-900')} />
+      <ShieldMark className={cx('size-7', light ? 'text-white/95' : 'text-brand-600')} />
       RentShield
     </Link>
   );

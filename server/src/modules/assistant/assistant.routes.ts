@@ -1,32 +1,27 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import { prisma } from '../../db.js';
 import { logger } from '../../logger.js';
 import { accessFor } from '../../lib/access.js';
-import { ApiError } from '../../lib/errors.js';
 import { requireAuth, userId } from '../../middleware/auth.js';
 import { validate } from '../../middleware/validate.js';
 import { stageOf } from '../leases/leases.routes.js';
 import { totals } from '../settlements/settlements.routes.js';
+import { faqAnswer } from './faq.js';
 import { ASSISTANT_GUIDE } from './guide.js';
+import { getProvider, QuotaError } from './providers.js';
 
 export const assistantRouter = Router();
 assistantRouter.use(requireAuth);
 
-const MODEL = 'claude-opus-5-5';
-
-/** The assistant is optional: without credentials the endpoint explains how to enable it. */
-const configured = () => Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
-let client: Anthropic | null = null;
-const getClient = () => (client ??= new Anthropic());
-
+/** Which mode the Help button runs in: an AI provider, or the built-in FAQ. */
 assistantRouter.get('/status', (_req, res) => {
-  res.json({ enabled: configured() });
+  const provider = getProvider();
+  res.json({ enabled: true, mode: provider?.name ?? 'faq' });
 });
 
-// Each message costs money: cap it per user.
+// Each AI message costs money or free quota: cap it per user.
 const limiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   limit: 30,
@@ -40,7 +35,7 @@ const limiter = rateLimit({
  * A short, factual summary of the tenancy for the model. Roles and counts
  * only: no names, emails or photos leave the server.
  */
-async function tenancyContext(leaseId: number, me: number): Promise<string> {
+async function tenancyContext(leaseId: number, me: number): Promise<{ text: string; stage?: string }> {
   const lease = await prisma.lease.findUnique({
     where: { id: leaseId },
     include: {
@@ -49,14 +44,15 @@ async function tenancyContext(leaseId: number, me: number): Promise<string> {
       settlement: { include: { deductions: { select: { reason: true, amount: true, status: true } } } },
     },
   });
-  if (!lease) return '';
+  if (!lease) return { text: '' };
   const { role, otherPartyId } = accessFor(lease, me); // throws 404 for non-members
+  const stage = stageOf(lease, lease.inspections, lease.settlement);
   const rooms = new Map(lease.property.rooms.map((r) => [r.id, r.name]));
   const lines = [
     `The user is the ${role.toLowerCase()} of a tenancy in ${lease.property.city} (${lease.property.propertyType.toLowerCase()}, ${lease.property.rooms.length} rooms).`,
     `Monthly rent Rs ${lease.monthlyRent}, deposit Rs ${lease.securityDeposit}. Map pin set: ${lease.property.latitude !== null ? 'yes' : 'no'}.`,
     `Other party (${role === 'TENANT' ? 'landlord' : 'tenant'}) joined: ${otherPartyId ? 'yes' : 'no, an invite link is still needed'}.`,
-    `Current stage: ${stageOf(lease, lease.inspections, lease.settlement)}.`,
+    `Current stage: ${stage}.`,
   ];
   for (const i of lease.inspections) {
     const c = (s: string) => i.items.filter((x) => x.reviewStatus === s).length;
@@ -75,7 +71,7 @@ async function tenancyContext(leaseId: number, me: number): Promise<string> {
     );
     for (const d of lease.settlement.deductions.slice(0, 10)) lines.push(`- Deduction Rs ${d.amount} (${d.status.toLowerCase()}): ${d.reason}`);
   }
-  return lines.join('\n');
+  return { text: lines.join('\n'), stage };
 }
 
 const chatBody = z.object({
@@ -90,16 +86,16 @@ const chatBody = z.object({
 
 /**
  * Streams the reply as Server-Sent Events:
+ *   data: {"mode": "gemini" | "claude" | "faq"}
  *   data: {"text": "..."}   pieces of the answer as they're written
  *   data: {"done": true}    end of the answer
  *   data: {"error": "..."}  something went wrong mid-way
  */
 assistantRouter.post('/chat', limiter, validate({ body: chatBody }), async (req, res) => {
-  if (!configured()) {
-    throw new ApiError(503, 'ASSISTANT_NOT_CONFIGURED', 'The help assistant isn’t switched on yet. The server needs an ANTHROPIC_API_KEY.');
-  }
   const { messages, leaseId, uiLanguage } = res.locals.body as z.infer<typeof chatBody>;
-  const context = leaseId ? await tenancyContext(leaseId, userId(req)) : '';
+  const ctx = leaseId ? await tenancyContext(leaseId, userId(req)) : { text: '' };
+  const question = messages[messages.length - 1].content;
+  const provider = getProvider();
 
   res.writeHead(200, {
     'Content-Type': 'text/event-stream; charset=utf-8',
@@ -108,46 +104,47 @@ assistantRouter.post('/chat', limiter, validate({ body: chatBody }), async (req,
   });
   const send = (payload: object) => res.write(`data: ${JSON.stringify(payload)}\n\n`);
 
-  const stream = getClient().beta.messages.stream({
-    model: MODEL,
-    max_tokens: 4000, // help answers are short by design; also a per-reply cost cap
-    // Chat doesn't need deep reasoning: low effort keeps replies quick.
-    output_config: { effort: 'low' },
-    // If a safety classifier declines, retry on a suitable fallback model instead of failing.
-    betas: ['server-side-fallback-2026-07-01'],
-    fallbacks: 'default',
-    system: [
-      { type: 'text', text: ASSISTANT_GUIDE, cache_control: { type: 'ephemeral' } },
-      {
-        type: 'text',
-        text: `Interface language: ${uiLanguage === 'hi' ? 'Hindi' : 'English'}.\n${context ? `TENANCY CONTEXT\n${context}` : 'The user is not looking at a specific tenancy right now.'}`,
-      },
-    ],
-    messages,
-  });
+  // No AI configured: answer from the built-in FAQ.
+  if (!provider) {
+    send({ mode: 'faq' });
+    send({ text: faqAnswer(question, uiLanguage, ctx.stage) });
+    send({ done: true });
+    return res.end();
+  }
 
   // Stop paying for tokens nobody will read if the user closes the chat.
+  const abort = new AbortController();
   res.on('close', () => {
-    if (!res.writableEnded) stream.abort();
+    if (!res.writableEnded) abort.abort();
   });
-  stream.on('text', (delta) => send({ text: delta }));
 
+  send({ mode: provider.name });
+  let wrote = false;
   try {
-    const final = await stream.finalMessage();
-    if (final.stop_reason === 'refusal') {
-      send({ text: '\n\nSorry, I can’t help with that. I can answer questions about using RentShield and your tenancy.' });
-    } else if (final.stop_reason === 'max_tokens') {
-      send({ text: '…' });
-    }
+    const result = await provider.stream({
+      system: ASSISTANT_GUIDE,
+      context: `Interface language: ${uiLanguage === 'hi' ? 'Hindi' : 'English'}.\n${ctx.text ? `TENANCY CONTEXT\n${ctx.text}` : 'The user is not looking at a specific tenancy right now.'}`,
+      messages,
+      signal: abort.signal,
+      onText: (t) => {
+        wrote = true;
+        send({ text: t });
+      },
+    });
+    if (result.refused) send({ text: '\n\nSorry, I can’t help with that. I can answer questions about using RentShield and your tenancy.' });
+    else if (result.truncated) send({ text: '…' });
     send({ done: true });
   } catch (err) {
-    if (res.writableEnded || res.destroyed) return; // client went away
-    let message = 'The assistant couldn’t answer just now. Please try again.';
-    if (err instanceof Anthropic.AuthenticationError) message = 'The assistant’s API key is invalid. Ask the site owner to check ANTHROPIC_API_KEY.';
-    else if (err instanceof Anthropic.RateLimitError) message = 'The assistant is busy right now. Please try again in a minute.';
-    else if (err instanceof Anthropic.APIError) logger.error({ status: err.status, message: err.message }, 'Assistant API error');
-    else logger.error({ err }, 'Assistant stream failed');
-    send({ error: message });
+    if (abort.signal.aborted || res.destroyed) return;
+    if (err instanceof QuotaError && !wrote) {
+      // Free AI quota used up: still help, from the FAQ.
+      send({ mode: 'faq' });
+      send({ text: faqAnswer(question, uiLanguage, ctx.stage) });
+      send({ done: true });
+    } else {
+      logger.error({ err: (err as Error).message, provider: provider.name }, 'Assistant failed');
+      send({ error: 'The assistant couldn’t answer just now. Please try again.' });
+    }
   } finally {
     res.end();
   }

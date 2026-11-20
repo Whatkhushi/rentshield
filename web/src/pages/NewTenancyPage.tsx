@@ -61,7 +61,7 @@ export default function NewTenancyPage() {
       <div className="mt-4 mb-8 flex gap-2">
         {['Your role', 'The property', 'Rent & deposit'].map((s, i) => (
           <div key={s} className="flex-1">
-            <div className={cx('h-1 rounded-full', i <= step ? 'bg-ink-900' : 'bg-ink-100')} />
+            <div className={cx('h-1 rounded-full', i <= step ? 'bg-brand-600' : 'bg-ink-100')} />
             <p className={cx('mt-2 text-xs font-medium', i === step ? 'text-ink-900' : 'text-ink-400')}>{t(s)}</p>
           </div>
         ))}
@@ -84,12 +84,12 @@ export default function NewTenancyPage() {
                   onClick={() => setRole(o.value)}
                   className={cx(
                     'rounded-2xl p-5 text-left ring-2 transition-all',
-                    role === o.value ? 'bg-ink-900 text-white ring-ink-900' : 'bg-white ring-ink-100 hover:ring-ink-300',
+                    role === o.value ? 'bg-brand-600 text-snow ring-brand-600 shadow-lg shadow-brand-600/25' : 'bg-white ring-ink-100 hover:ring-brand-200',
                   )}
                 >
-                  <o.icon className={cx('size-6', role === o.value ? 'text-ok-500' : 'text-ink-700')} />
+                  <o.icon className={cx('size-6', role === o.value ? 'text-snow' : 'text-brand-600')} />
                   <p className="mt-3 font-semibold">{t(o.title)}</p>
-                  <p className={cx('mt-1 text-sm', role === o.value ? 'text-ink-200' : 'text-ink-500')}>{t(o.text)}</p>
+                  <p className={cx('mt-1 text-sm', role === o.value ? 'text-snow/80' : 'text-ink-500')}>{t(o.text)}</p>
                 </button>
               ))}
             </div>

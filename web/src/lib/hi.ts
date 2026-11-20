@@ -109,6 +109,7 @@ export const HI: Record<string, string> = {
   // ---------- Dashboard ----------
   'Hi {name},': 'नमस्ते {name},',
   'Your tenancies': 'आपकी किरायेदारियाँ',
+  'Every handover, inspection and deposit in one place.': 'हर हैंडओवर, जाँच और डिपॉज़िट एक ही जगह।',
   'New tenancy': 'नई किरायेदारी',
   'No tenancies yet': 'अभी कोई किरायेदारी नहीं',
   'Set up your first handover': 'अपना पहला हैंडओवर शुरू करें',
@@ -286,6 +287,9 @@ export const HI: Record<string, string> = {
   'The other person has already joined, so this record belongs to both of you and can’t be deleted.':
     'दूसरा व्यक्ति जुड़ चुका है, इसलिए यह रिकॉर्ड आप दोनों का है और हटाया नहीं जा सकता।',
   'The assistant is turned off': 'सहायक अभी बंद है',
+  Basic: 'बेसिक',
+  'Basic mode: I answer common questions about RentShield. Add a free Gemini key to the server for full AI answers in any language.':
+    'बेसिक मोड: मैं RentShield के आम सवालों के जवाब देता हूँ। किसी भी भाषा में पूरे AI जवाबों के लिए सर्वर में मुफ़्त Gemini key जोड़ें।',
 
   // ---------- Inspection ----------
   'Start the move-in inspection': 'मूव-इन जाँच शुरू करें',

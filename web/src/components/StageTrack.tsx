@@ -10,7 +10,7 @@ export function StageBar({ stage }: { stage: Stage }) {
   return (
     <div className="flex gap-1">
       {STAGES.map((s, i) => (
-        <span key={s.key} className={cx('h-1.5 flex-1 rounded-full', i < idx || stage === 'SETTLED' ? 'bg-ok-500' : i === idx ? 'bg-ink-900' : 'bg-ink-100')} />
+        <span key={s.key} className={cx('h-1.5 flex-1 rounded-full', i < idx || stage === 'SETTLED' ? 'bg-ok-500' : i === idx ? 'bg-brand-600' : 'bg-ink-100')} />
       ))}
     </div>
   );

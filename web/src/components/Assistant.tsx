@@ -86,9 +86,13 @@ export default function Assistant() {
   const match = useMatch('/app/tenancy/:id/*');
   const leaseId = match ? Number(match.params.id) : undefined;
 
-  const status = useQuery({ queryKey: ['assistant-status'], queryFn: () => api<{ enabled: boolean }>('/assistant/status'), enabled: open });
-  // Until the server has an API key, don't let people type into a chat that can't answer.
+  const status = useQuery({
+    queryKey: ['assistant-status'],
+    queryFn: () => api<{ enabled: boolean; mode: 'gemini' | 'claude' | 'faq' }>('/assistant/status'),
+    enabled: open,
+  });
   const off = status.data?.enabled === false;
+  const basic = status.data?.mode === 'faq';
 
   useEffect(() => {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: 'smooth' });
@@ -165,7 +169,7 @@ export default function Assistant() {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-full bg-ink-900 py-3 pr-5 pl-4 text-sm font-semibold text-white shadow-xl shadow-ink-900/20 transition-transform hover:scale-105"
+          className="fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-full bg-brand-600 py-3 pr-5 pl-4 text-sm font-semibold text-snow shadow-xl shadow-brand-600/30 transition-transform hover:scale-105"
           aria-label={t('Open help assistant')}
         >
           <MessageCircleQuestion className="size-5" />
@@ -181,7 +185,14 @@ export default function Assistant() {
               <Bot className="size-5" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="font-semibold leading-tight">{t('Help assistant')}</p>
+              <p className="flex items-center gap-2 font-semibold leading-tight">
+                {t('Help assistant')}
+                {status.data && (
+                  <span className={cx('rounded-full px-1.5 py-0.5 text-[10px] font-semibold', basic ? 'bg-snow/10 text-snow/70' : 'bg-ok-500/20 text-ok-500')}>
+                    {basic ? t('Basic') : 'AI'}
+                  </span>
+                )}
+              </p>
               <p className="truncate text-xs text-ink-300">{t('Ask in any language, by typing or speaking')}</p>
             </div>
             <button
@@ -201,9 +212,9 @@ export default function Assistant() {
           </div>
 
           <div ref={scroller} className="flex-1 space-y-3 overflow-y-auto bg-paper p-4">
-            {status.data && !status.data.enabled && (
-              <div className="rounded-xl bg-warn-50 p-3 text-sm text-warn-700 ring-1 ring-warn-100">
-                {t('The assistant isn’t switched on yet. The site owner needs to add an ANTHROPIC_API_KEY to the server.')}
+            {basic && (
+              <div className="rounded-xl bg-brand-50 p-3 text-xs text-brand-700 ring-1 ring-brand-100">
+                {t('Basic mode: I answer common questions about RentShield. Add a free Gemini key to the server for full AI answers in any language.')}
               </div>
             )}
             {messages.length === 0 && !off && (
@@ -225,7 +236,7 @@ export default function Assistant() {
                 <div
                   className={cx(
                     'group relative max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed',
-                    m.role === 'user' ? 'rounded-br-md bg-ink-900 text-white' : 'rounded-bl-md bg-white text-ink-800 ring-1 ring-ink-100',
+                    m.role === 'user' ? 'rounded-br-md bg-brand-600 text-snow' : 'rounded-bl-md bg-white text-ink-800 ring-1 ring-ink-100',
                     m.error && 'bg-red-50 text-red-700 ring-red-100',
                   )}
                 >
@@ -284,13 +295,13 @@ export default function Assistant() {
                 <button
                   type="button"
                   onClick={() => abort.current?.abort()}
-                  className="grid size-10 shrink-0 place-items-center rounded-xl bg-ink-900 text-white"
+                  className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand-600 text-snow"
                   aria-label={t('Stop')}
                 >
                   <Square className="size-3.5" />
                 </button>
               ) : (
-                <button type="submit" disabled={!input.trim() || off} className="grid size-10 shrink-0 place-items-center rounded-xl bg-ink-900 text-white disabled:opacity-40" aria-label={t('Send')}>
+                <button type="submit" disabled={!input.trim() || off} className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand-600 text-snow disabled:opacity-40" aria-label={t('Send')}>
                   <Send className="size-4" />
                 </button>
               )}

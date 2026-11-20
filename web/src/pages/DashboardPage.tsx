@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, Building2, Home, MapPin, Plus } from 'lucide-react';
+import { ArrowRight, Building2, CheckCircle2, Home, MapPin, Plus, Wallet } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { inr } from '../lib/format';
@@ -41,17 +41,31 @@ export default function DashboardPage() {
 
   return (
     <div className="animate-rise">
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-sm text-ink-500">{t('Hi {name},', { name: user?.name.split(' ')[0] ?? '' })}</p>
-          <h1 className="text-3xl font-bold tracking-tight">{t('Your tenancies')}</h1>
-        </div>
-        <Link to="/app/new">
-          <Button>
+      {/* Hero band: greeting, main action and the numbers at a glance */}
+      <section className="keep-light relative mb-8 overflow-hidden rounded-3xl bg-gradient-to-br from-night via-[#1d2366] to-brand-700 p-6 text-snow shadow-xl shadow-brand-700/20 sm:p-8">
+        <div className="pointer-events-none absolute -right-16 -top-24 size-72 rounded-full bg-brand-400/30 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-28 left-1/3 size-64 rounded-full bg-ok-500/15 blur-3xl" />
+        <div className="relative flex flex-wrap items-end justify-between gap-6">
+          <div>
+            <p className="text-sm text-snow/70">{t('Hi {name},', { name: user?.name.split(' ')[0] ?? '' })}</p>
+            <h1 className="mt-1 text-3xl font-bold tracking-tight">{t('Your tenancies')}</h1>
+            <p className="mt-1 text-sm text-snow/70">{t('Every handover, inspection and deposit in one place.')}</p>
+          </div>
+          <Link
+            to="/app/new"
+            className="inline-flex items-center gap-2 rounded-xl bg-snow px-4 py-2.5 text-sm font-semibold text-night shadow-lg transition-transform hover:-translate-y-0.5"
+          >
             <Plus className="size-4" /> {t('New tenancy')}
-          </Button>
-        </Link>
-      </div>
+          </Link>
+        </div>
+        {leases.length > 0 && (
+          <div className="relative mt-7 grid gap-3 sm:grid-cols-3">
+            <HeroStat icon={<Home className="size-4" />} label={t('Active tenancies')} value={String(active.length)} />
+            <HeroStat icon={<Wallet className="size-4" />} label={t('Deposits tracked')} value={inr(leases.reduce((a, l) => a + l.securityDeposit, 0))} />
+            <HeroStat icon={<CheckCircle2 className="size-4" />} label={t('Settled')} value={String(leases.length - active.length)} />
+          </div>
+        )}
+      </section>
 
       {isLoading && <Spinner label={t('Loading…')} />}
       {error && <Alert>{(error as Error).message}</Alert>}
@@ -74,18 +88,12 @@ export default function DashboardPage() {
 
       {leases.length > 0 && (
         <>
-          <div className="mb-6 grid gap-4 sm:grid-cols-3">
-            <Stat label={t('Active tenancies')} value={String(active.length)} />
-            <Stat label={t('Deposits tracked')} value={inr(leases.reduce((a, l) => a + l.securityDeposit, 0))} />
-            <Stat label={t('Settled')} value={String(leases.length - active.length)} />
-          </div>
-
           <div className="grid gap-4 md:grid-cols-2">
             {leases.map((l) => {
               const other = l.myRole === 'TENANT' ? l.landlord : l.tenant;
               return (
                 <Link key={l.id} to={`/app/tenancy/${l.id}`} className="group">
-                  <Card className="h-full overflow-hidden transition-all group-hover:-translate-y-0.5 group-hover:shadow-lg">
+                  <Card className="h-full overflow-hidden transition-all group-hover:-translate-y-1 group-hover:shadow-xl group-hover:ring-brand-200">
                     {/* Header: map of the property if pinned, otherwise a pattern */}
                     <div className="relative h-28">
                       {l.property.latitude != null && l.property.longitude != null ? (
@@ -149,11 +157,14 @@ export default function DashboardPage() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function HeroStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <Card className="p-4">
-      <p className="text-xs font-medium uppercase tracking-wider text-ink-400">{label}</p>
-      <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight">{value}</p>
-    </Card>
+    <div className="flex items-center gap-3 rounded-2xl bg-snow/10 p-4 ring-1 ring-snow/10 backdrop-blur-sm">
+      <span className="grid size-9 place-items-center rounded-xl bg-snow/15 text-snow">{icon}</span>
+      <div>
+        <p className="text-[11px] font-medium uppercase tracking-wider text-snow/60">{label}</p>
+        <p className="text-xl font-bold tabular-nums tracking-tight">{value}</p>
+      </div>
+    </div>
   );
 }

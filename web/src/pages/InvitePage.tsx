@@ -52,7 +52,7 @@ export default function InvitePage() {
           <Alert>{t('This invitation link isn’t valid.')}</Alert>
         ) : (
           <>
-            <div className="grid size-12 place-items-center rounded-2xl bg-ink-900 text-white">
+            <div className="grid size-12 place-items-center rounded-2xl bg-brand-600 text-snow">
               <ShieldCheck className="size-6" />
             </div>
             <h1 className="mt-5 text-2xl font-bold tracking-tight">
