@@ -116,7 +116,7 @@ function LocationCard({ lease }: { lease: LeaseDetail }) {
           photos={photos.map(({ e, label }) => ({ id: e.id, lat: e.latitude!, lng: e.longitude!, label, ok: e.check!.place === 'AT_PROPERTY' }))}
         />
       ) : (
-        <div className="bg-grid grid h-40 place-items-center bg-ink-50">
+        <div className="grid h-40 place-items-center bg-gradient-to-br from-ink-50 to-ink-100">
           <MapPin className="size-8 text-ink-300" />
         </div>
       )}

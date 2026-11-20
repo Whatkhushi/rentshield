@@ -51,7 +51,6 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
       <aside className="keep-light relative hidden overflow-hidden bg-night p-12 text-snow lg:flex lg:flex-col lg:justify-between">
-        <div className="bg-grid absolute inset-0 opacity-[0.07] invert" />
         <div className="absolute -bottom-32 -left-20 size-[30rem] rounded-full bg-ok-500/15 blur-3xl" />
         <div className="relative">
           <Logo light />

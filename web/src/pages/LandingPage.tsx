@@ -61,7 +61,6 @@ export default function LandingPage() {
 
   return (
     <div className="keep-light relative flex min-h-screen flex-col bg-night text-snow">
-      <div className="bg-grid pointer-events-none absolute inset-0 opacity-[0.06] invert" />
 
       <nav className="relative mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-5 sm:px-6">
         <Logo light />

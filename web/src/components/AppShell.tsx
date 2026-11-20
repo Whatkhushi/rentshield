@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, Navigate, Outlet, useLocation } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { Heart, LogOut } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { useI18n } from '../lib/i18n';
@@ -11,22 +11,14 @@ import { Avatar, Spinner } from './ui';
 function Footer() {
   const { t } = useI18n();
   return (
-    // A tinted band (ink-50) so the footer reads as separate from the page.
-    <footer className="mt-20 border-t border-ink-100 bg-ink-50">
+    // Same darker tint as the header, so both clearly frame the page.
+    <footer className="mt-20 border-t border-ink-200 bg-ink-100">
       {/* Extra space at the bottom/right so the floating Help button never covers footer text. */}
       <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 pt-6 pb-20 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:pb-6 xl:pr-6 sm:pr-36">
         <div className="flex items-center gap-2 font-bold text-ink-900">
           <ShieldMark className="size-5 text-ink-900" />
           RentShield
         </div>
-        <nav className="flex gap-6 text-ink-600">
-          <Link to="/app" className="hover:text-ink-900 hover:underline">
-            {t('Your tenancies')}
-          </Link>
-          <Link to="/app/new" className="hover:text-ink-900 hover:underline">
-            {t('New tenancy')}
-          </Link>
-        </nav>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-500">
           <span>© {new Date().getFullYear()} RentShield</span>
           <span className="flex items-center gap-1">
@@ -51,8 +43,8 @@ export default function AppShell() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      {/* White (light) / raised navy (dark) bar, distinct from the page background. */}
-      <header className="sticky top-0 z-40 border-b border-ink-100 bg-white/95 shadow-[0_1px_3px_rgb(17_40_75/0.05)] backdrop-blur-md">
+      {/* Darker tint than the page (ink-100 vs paper), in both light and dark mode. */}
+      <header className="sticky top-0 z-40 border-b border-ink-200 bg-ink-100/95 shadow-[0_1px_3px_rgb(17_40_75/0.06)] backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <Logo to="/app" />
           <div className="flex items-center gap-1.5 sm:gap-3">

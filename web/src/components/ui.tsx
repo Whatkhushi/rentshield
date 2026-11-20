@@ -150,7 +150,7 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
 
 export function EmptyState({ icon, title, children, action }: { icon: ReactNode; title: string; children?: ReactNode; action?: ReactNode }) {
   return (
-    <div className="bg-grid flex flex-col items-center rounded-2xl px-6 py-14 text-center ring-1 ring-ink-100">
+    <div className="flex flex-col items-center rounded-2xl bg-white/50 px-6 py-14 text-center ring-1 ring-ink-100">
       <div className="mb-4 grid size-14 place-items-center rounded-2xl bg-white text-ink-700 shadow-sm ring-1 ring-ink-100">{icon}</div>
       <h3 className="text-lg font-semibold text-ink-900">{title}</h3>
       {children && <p className="mt-1 max-w-md text-sm text-ink-500">{children}</p>}

@@ -109,19 +109,6 @@ body {
   transition: background-color 0.2s ease;
 }
 
-/* Subtle grid used behind hero / empty states */
-.bg-grid {
-  background-image:
-    linear-gradient(to right, rgb(17 40 75 / 0.06) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(17 40 75 / 0.06) 1px, transparent 1px);
-  background-size: 28px 28px;
-}
-.dark .bg-grid {
-  background-image:
-    linear-gradient(to right, rgb(255 255 255 / 0.04) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(255 255 255 / 0.04) 1px, transparent 1px);
-}
-
 /* Soften OpenStreetMap's colours to sit quietly behind the UI. */
 .leaflet-tile-pane {
   filter: saturate(0.45) brightness(1.04) contrast(0.95);

@@ -59,7 +59,6 @@ export default function TenancyPage() {
       </Link>
 
       <header className="keep-light relative overflow-hidden rounded-3xl bg-night p-6 text-snow sm:p-8">
-        <div className="bg-grid absolute inset-0 opacity-[0.06] invert" />
         <div className="absolute -right-20 -top-20 size-72 rounded-full bg-ok-500/10 blur-3xl" />
         <div className="relative flex flex-wrap items-start justify-between gap-6">
           <div>

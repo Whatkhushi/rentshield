@@ -96,7 +96,7 @@ export default function DashboardPage() {
                           radius={0}
                         />
                       ) : (
-                        <div className="bg-grid grid size-full place-items-center bg-gradient-to-br from-ink-50 to-ink-100">
+                        <div className="grid size-full place-items-center bg-gradient-to-br from-ink-50 to-ink-100">
                           <Building2 className="size-8 text-ink-300" />
                         </div>
                       )}
